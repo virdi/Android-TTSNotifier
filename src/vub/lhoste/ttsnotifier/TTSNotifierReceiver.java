@@ -12,6 +12,4 @@ public class TTSNotifierReceiver extends BroadcastReceiver {
 		intent.putExtra("result", getResultCode());
 		TTSNotifierService.beginStartingService(context, intent);
 	}
-	
-
 }

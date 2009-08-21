@@ -3,13 +3,13 @@
 	android:versionCode="1" android:versionName="1.0" package="vub.lhoste.ttsnotifier">
 	<application android:label="@string/app_name" android:icon="@drawable/icon">
 		<service android:name=".TTSNotifierService" />
-		<activity android:name=".TTSNotifierStartServiceActivity"
+		<!-- <activity android:name=".TTSNotifierStartServiceActivity"
 			android:label="@string/app_name" android:excludeFromRecents="true"
 			android:finishOnTaskLaunch="true">
 			<intent-filter>
 				<category android:name="android.intent.category.LAUNCHER" />
 			</intent-filter>
-		</activity>
+		</activity> -->
 		<receiver android:name=".TTSNotifierReceiver">
 			<intent-filter>
 				<action android:name="android.intent.action.PHONE_STATE" />
