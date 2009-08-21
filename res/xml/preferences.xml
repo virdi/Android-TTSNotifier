@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+	<PreferenceCategory android:title="Enable / Disable">
+		<CheckBoxPreference android:title="Disable all"
+			android:defaultValue="false" android:summary="disable TTS for every notification"
+			android:key="cbxDisableAll" />
+		<CheckBoxPreference android:title="Incoming call"
+			android:defaultValue="true" android:summary="enable TTS on incoming call"
+			android:key="cbxEnableIncomingCall" />
+		<!--
+			<CheckBoxPreference android:title="Incoming SMS"
+			android:defaultValue="true" android:summary="enable TTS on incoming
+			SMS" android:key="checkboxPref" /> <CheckBoxPreference
+			android:title="Battery low" android:defaultValue="true"
+			android:summary="enable TTS on battery low warning"
+			android:key="checkboxPref" /> <CheckBoxPreference android:title="Bad
+			media removal" android:defaultValue="true" android:summary="enable
+			TTS on bad media removal" android:key="checkboxPref" />
+			<CheckBoxPreference android:title="Provider changed"
+			android:defaultValue="true" android:summary="enable TTS on provider
+			change" android:key="checkboxPref" /> <CheckBoxPreference
+			android:title="PC connected" android:defaultValue="true"
+			android:summary="enable TTS on PC connected"
+			android:key="checkboxPref" /> <CheckBoxPreference android:title="PC
+			disconnected" android:defaultValue="true" android:summary="enable TTS
+			on PC disconnected" android:key="checkboxPref" />
+		-->
+		<CheckBoxPreference android:title="Wifi discovered"
+			android:defaultValue="true" android:summary="enable TTS when wifi discovered"
+			android:key="cbxEnableWifiDiscovered" />
+		<CheckBoxPreference android:title="Wifi connect / disconnect"
+			android:defaultValue="true" android:summary="enable TTS when wifi is connected/disconnected"
+			android:key="cbxEnableWifiConnectDisconnect" />
+	</PreferenceCategory>
+	<PreferenceCategory android:title="Extra options">
+		<CheckBoxPreference android:title="Obey silent mode"
+			android:defaultValue="true" android:summary="do not use TTS when phone is in silent mode "
+			android:key="cbxObeySilentMode" />
+		<!--
+			<CheckBoxPreference android:title="Run with high priority"
+			android:defaultValue="true" android:summary="Run TTS with high
+			priority (only recommended when you don't use a ringtone or
+			vibration)" android:key="cbxRunWithHighPriority" />
+		-->
+	</PreferenceCategory>
+</PreferenceScreen>

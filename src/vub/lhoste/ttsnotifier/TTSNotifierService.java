@@ -3,8 +3,10 @@ package vub.lhoste.ttsnotifier;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.database.Cursor;
+import android.media.AudioManager;
 import android.net.Uri;
 import android.net.wifi.WifiManager;
 import android.os.Handler;
@@ -13,6 +15,7 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
 import android.os.Process;
+import android.preference.PreferenceManager;
 import android.provider.Contacts;
 import android.telephony.TelephonyManager;
 import android.util.Log;
@@ -33,14 +36,24 @@ public class TTSNotifierService extends Service {
 	private static final String ACTION_SUPPLICANT_CONNECTION_CHANGE_ACTION = "android.net.wifi.supplicant.CONNECTION_CHANGE";
 
 	private static final int TTS_MAXTRIES = 30;
-	private static final int TTS_THREADWAIT = 200;
-	
+	private static final int TTS_THREADWAIT = 300;
+
 	private static TTS myTts = null;
 	private static boolean myTtsReady = false;
 
 	private Context context;
 	private ServiceHandler mServiceHandler;
 	private Looper mServiceLooper;
+
+	// Settings
+	private boolean cbxEnableIncomingCall;
+	private boolean cbxEnableWifiConnectDisconnect;
+	private boolean cbxEnableWifiDiscovered;
+	private boolean cbxDisableAll;
+	private boolean cbxObeySilentMode;
+	
+	// State
+	private boolean silentMode = false;
 
 	@Override
 	public IBinder onBind(Intent intent) {
@@ -90,8 +103,13 @@ public class TTSNotifierService extends Service {
 			Intent intent = (Intent) msg.obj;
 			String action = intent.getAction();
 			//String dataType = intent.getType();
+			readSettings();
+
 			if (action == null) return;
-			Log.v("LODE", action);
+			if (cbxDisableAll) return;
+			if (cbxObeySilentMode && silentMode) return;
+			if (!waitForSpeak()) return;
+
 			if (ACTION_PHONE_STATE.equals(action)) {
 				handleACTION_PHONE_STATE(intent);
 			} else if (ACTION_SMS_RECEIVED.equals(action)) {
@@ -125,24 +143,42 @@ public class TTSNotifierService extends Service {
 		return true;
 	}
 
-	private void speak(String str) {
+	private void readSettings() {
+		// Preferences
+		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getBaseContext());
+		cbxDisableAll = prefs.getBoolean("cbxDisableAll", false);
+		cbxEnableIncomingCall = prefs.getBoolean("cbxEnableIncomingCall", true);
+		cbxEnableWifiDiscovered = prefs.getBoolean("cbxEnableWifiDiscovered", true);
+		cbxEnableWifiConnectDisconnect = prefs.getBoolean("cbxEnableWifiConnectDisconnect", true);
+		cbxObeySilentMode = prefs.getBoolean("cbxObeySilentMode", true);
+		// State
+		AudioManager am = (AudioManager)context.getSystemService(Context.AUDIO_SERVICE);
+		silentMode = am.getRingerMode() != AudioManager.RINGER_MODE_NORMAL;
+	}
+
+
+	private boolean waitForSpeak() {
 		try {
 			for (int i = 0; i < TTS_MAXTRIES; i++) {
-				Log.v("LODE", "SPEAK: " + str);
+				Log.v("LODE", "waitForSpeak()");
 				if (myTtsReady) {
-					myTts.speak(str, 0, null);
-					return;
+					return true;
 				} else {
 					Thread.sleep(TTS_THREADWAIT);
 				}
 			}
 		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		return false;
+	}
+
+	private void speak(String str) {
+		myTts.speak(str, 0, null);
 	}
 
 	private void handleACTION_PHONE_STATE(Intent intent) {
+		if (!cbxEnableIncomingCall) return;
 		TelephonyManager myTelManager = (TelephonyManager)context.getSystemService(Context.TELEPHONY_SERVICE);
 		if(myTelManager.getCallState() == TelephonyManager.CALL_STATE_RINGING) {
 			String phoneNr = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
@@ -179,10 +215,12 @@ public class TTSNotifierService extends Service {
 	}
 
 	public void handleACTION_PICK_WIFI_NETWORK(Intent intent) {
+		if (!cbxEnableWifiDiscovered) return;
 		speak("Pick a Wi-Fi network to connect to");	
 	}
 
 	private void handleSUPPLICANT_CONNECTION_CHANGE_ACTION(Intent intent) {
+		if (!cbxEnableWifiConnectDisconnect) return;
 		if (intent.getBooleanExtra(WifiManager.EXTRA_SUPPLICANT_CONNECTED, true)) {
 			speak("Wifi connected");			
 		} else {
@@ -198,27 +236,17 @@ public class TTSNotifierService extends Service {
 	};
 
 	private String getContactNameFromNumber(String number) {
-		// define the columns I want the query to return
 		String[] projection = new String[] {
 				Contacts.Phones.DISPLAY_NAME,
 				Contacts.Phones.NUMBER };
-
-		// encode the phone number and build the filter URI
 		Uri contactUri = Uri.withAppendedPath(Contacts.Phones.CONTENT_FILTER_URL, Uri.encode(number));
-
-		// query time
 		Cursor c = getContentResolver().query(contactUri, projection, null,
 				null, null);
-
-		// if the query returns 1 or more results
-		// return the first result
 		if (c.moveToFirst()) {
 			String name = c.getString(c
 					.getColumnIndex(Contacts.Phones.DISPLAY_NAME));
 			return name;
 		}
-
-		// return the original number if no match was found
 		return "Unknown";
 	}
 
