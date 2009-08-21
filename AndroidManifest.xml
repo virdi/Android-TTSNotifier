@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+	android:versionCode="1" android:versionName="1.0" package="vub.lhoste.ttsnotifier">
+	<application android:label="@string/app_name" android:icon="@drawable/icon">
+		<service android:name=".TTSNotifierService" />
+		<activity android:name=".TTSNotifierStartServiceActivity"
+			android:label="@string/app_name" android:excludeFromRecents="true"
+			android:finishOnTaskLaunch="true">
+			<intent-filter>
+				<category android:name="android.intent.category.LAUNCHER" />
+			</intent-filter>
+		</activity>
+		<receiver android:name=".TTSNotifierReceiver">
+			<intent-filter>
+				<action android:name="android.intent.action.PHONE_STATE" />
+				<action android:name="android.provider.Telephony.SMS_RECEIVED" />
+				<action android:name="android.intent.action.ACTION_BATTERY_LOW" />
+				<action android:name="android.intent.action.ACTION_MEDIA_BAD_REMOVAL" />
+				<action android:name="android.intent.action.ACTION_BOOT_COMPLETED" />
+				<action android:name="android.intent.action.ACTION_PROVIDER_CHANGED" />
+				<action android:name="android.intent.action.ACTION_UMS_CONNECTED" />
+				<action android:name="android.intent.action.ACTION_UMS_DISCONNECTED" />
+				<action android:name="android.net.wifi.PICK_WIFI_NETWORK" />
+				<action android:name="android.net.wifi.supplicant.CONNECTION_CHANGE" />
+			</intent-filter>
+		</receiver>
+	</application>
+	<uses-sdk android:minSdkVersion="3" />
+	<uses-permission android:name="android.permission.READ_PHONE_STATE"></uses-permission>
+	<uses-permission android:name="android.permission.RECEIVE_SMS"></uses-permission>
+	<uses-permission android:name="android.permission.READ_CONTACTS"></uses-permission>
+	<uses-permission android:name="android.permission.BATTERY_STATS"></uses-permission>
+	<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"></uses-permission>
+</manifest>
