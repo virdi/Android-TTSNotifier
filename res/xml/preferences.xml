@@ -19,29 +19,39 @@
 		<CheckBoxPreference android:title="Provider changed"
 			android:defaultValue="true" android:summary="enable TTS on provider changed"
 			android:dependency="cbxEnable" android:key="cbxEnableProviderChanged" />
-		<!-- <CheckBoxPreference android:title="Media mounted"
-			android:defaultValue="true" android:summary="enable TTS on Media mounted"
-			android:dependency="cbxEnable" android:key="cbxEnableMediaMounted" /> -->
+		<!--
+			<CheckBoxPreference android:title="Media mounted"
+			android:defaultValue="true" android:summary="enable TTS on Media
+			mounted" android:dependency="cbxEnable"
+			android:key="cbxEnableMediaMounted" />
+		-->
 		<CheckBoxPreference android:title="Media unmounted"
 			android:defaultValue="true" android:summary="enable TTS on Media unmounted"
 			android:dependency="cbxEnable" android:key="cbxEnableMediaUnMounted" />
 		<CheckBoxPreference android:title="Wifi discovered"
-			android:defaultValue="true" android:summary="enable TTS when wifi discovered (note: network notification should be enabled)"
+			android:defaultValue="true"
+			android:summary="note: network notification should be enabled in Wireless controls"
 			android:dependency="cbxEnable" android:key="cbxEnableWifiDiscovered" />
 		<CheckBoxPreference android:title="Wifi connect"
 			android:defaultValue="true" android:summary="enable TTS when wifi is connected"
 			android:dependency="cbxEnable" android:key="cbxEnableWifiConnect" />
-			<CheckBoxPreference android:title="Wifi disconnect"
+		<CheckBoxPreference android:title="Wifi disconnect"
 			android:defaultValue="true" android:summary="enable TTS when wifi is disconnected"
 			android:dependency="cbxEnable" android:key="cbxEnableWifiDisconnect" />
 	</PreferenceCategory>
 	<PreferenceCategory android:title="Extra options">
+		<CheckBoxPreference android:title="Change volume"
+			android:defaultValue="true" android:summary="change the volume when TTS speaks"
+			android:key="cbxChangeVolume" />
+		<EditTextPreference android:title="TTS volume"
+			android:summary="set the volume (max 15)" android:defaultValue="14"
+			android:key="intOptionsTTSVolume" android:dependency="cbxChangeVolume" />
 		<CheckBoxPreference android:title="Obey silent mode"
-			android:defaultValue="true" android:summary="do not use TTS when phone is in silent mode "
+			android:defaultValue="true" android:summary="do not use TTS when phone is in silent mode"
 			android:key="cbxObeySilentMode" />
 		<CheckBoxPreference android:title="Run with high priority"
 			android:defaultValue="true"
-			android:summary="Run TTS with high priority (only recommended when using the 'Special TTS Ringtone mode'). You need to restart the application before this takes effect"
+			android:summary="(only needed when using the 'Special TTS Ringtone mode'). Restart App!"
 			android:key="cbxRunWithHighPriority" />
 	</PreferenceCategory>
 	<PreferenceCategory android:title="Extra options for incoming call">
@@ -53,14 +63,27 @@
 			android:title="Set speech text" android:key="txtOptionsIncomingCall" />
 		<CheckBoxPreference android:title="Use special TTS Ringtone"
 			android:defaultValue="false"
-			android:summary="[Ring]*n, TTS, Repeat - Note: disable the default ringtone of your phone when using this option"
+			android:summary="[Ring]*n, TTS, Repeat - Note: set the ringtone volume to zero"
 			android:key="cbxOptionsIncomingCallUseTTSRingtone" />
-		<EditTextPreference android:title="Set minimal ringtone count"
-			android:summary="minimal number of rings before TTS starts"
-			android:defaultValue="2" android:key="intOptionsIncomingCallMinimalRingCountTTSDelay"
-			android:dependency="cbxOptionsIncomingCallUseTTSRingtone" />
 		<RingtonePreference android:title="TTS Ringtone"
 			android:summary="Select a ringtone" android:key="txtOptionsIncomingCallRingtone"
+			android:dependency="cbxOptionsIncomingCallUseTTSRingtone" />
+		<EditTextPreference android:title="Set minimal ringtone count before TTS"
+			android:summary="minimal number of rings before TTS starts"
+			android:defaultValue="2"
+			android:key="intOptionsIncomingCallMinimalRingCountBeforeTTS"
+			android:dependency="cbxOptionsIncomingCallUseTTSRingtone" />
+		<EditTextPreference android:title="Set ringtone count after TTS"
+			android:summary="number of rings after TTS announcement"
+			android:defaultValue="2" android:key="intOptionsIncomingCallRingCountAfterTTS"
+			android:dependency="cbxOptionsIncomingCallUseTTSRingtone" />
+		<EditTextPreference android:title="Set number of TTS announcements"
+			android:summary="set number of times the TTS will be invoked"
+			android:defaultValue="2" android:key="intOptionsIncomingCallTTSRepeats"
+			android:dependency="cbxOptionsIncomingCallUseTTSRingtone" />
+		<EditTextPreference android:title="Set number of milliseconds between ringtone"
+			android:summary="number of milliseconds between ringtone"
+			android:defaultValue="2" android:key="intOptionsIncomingCallDelayBetweenRingtones"
 			android:dependency="cbxOptionsIncomingCallUseTTSRingtone" />
 	</PreferenceCategory>
 	<PreferenceCategory android:title="Extra options for incoming SMS">
@@ -107,7 +130,8 @@
 		<CheckBoxPreference android:title="Use user-defined text"
 			android:defaultValue="false" android:summary="user-defined text will be used as the TTS"
 			android:key="cbxOptionsMediaMountedUserDefinedText" />
-		<EditTextPreference android:summary="Set your own Usb Mass Storage (Media) mounted text"
+		<EditTextPreference
+			android:summary="Set your own Usb Mass Storage (Media) mounted text"
 			android:defaultValue="Media mounted" android:dependency="cbxOptionsMediaMountedUserDefinedText"
 			android:title="Set speech text" android:key="txtOptionsMediaMountedText" />
 	</PreferenceCategory>

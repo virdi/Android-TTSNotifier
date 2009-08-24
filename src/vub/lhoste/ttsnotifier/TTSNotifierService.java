@@ -23,6 +23,7 @@ import android.os.Message;
 import android.os.Process;
 import android.preference.PreferenceManager;
 import android.provider.Contacts;
+import android.provider.Settings;
 import android.telephony.TelephonyManager;
 import android.telephony.gsm.SmsMessage;
 import android.util.Log;
@@ -44,11 +45,12 @@ public class TTSNotifierService extends Service {
 	private static final String ACTION_WIFI_STATE_CHANGE = "android.net.wifi.STATE_CHANGE";
 	private static final String ACTION_SUPPLICANT_CONNECTION_CHANGE_ACTION  = "android.net.wifi.supplicant.CONNECTION_CHANGE";
 
+	private static final int LONG_THREADWAIT = 1000;
 	private static final int MEDIUM_THREADWAIT = 300;
-	private static final int FAST_THREADWAIT = 50;
+	private static final int SHORT_THREADWAIT = 50;
 
-	private static TTS myTts = null;
-	private MediaPlayer myRingTonePlayer = null;
+	private volatile static TTS myTts = null;
+	private volatile MediaPlayer myRingTonePlayer = null;
 	private volatile boolean stopRingtone = false;
 	private volatile boolean ttsReady = false;
 
@@ -56,10 +58,14 @@ public class TTSNotifierService extends Service {
 	private ServiceHandler mServiceHandler;
 	private Looper mServiceLooper;
 	private SharedPreferences mPrefs;
+	private AudioManager mAudioManager;
+	private TelephonyManager mTelephonyManager;
+	private Thread mRingtoneThread;
 
 	// State
 	private boolean silentMode = false;
-	private Thread myRingtoneThread;
+	private volatile int oldStreamRingtoneVolume = 0;
+	private volatile int oldStreamMusicVolume = 0;
 
 	@Override
 	public IBinder onBind(Intent intent) {
@@ -68,22 +74,23 @@ public class TTSNotifierService extends Service {
 
 	@Override
 	public void onCreate() {
-		Log.v("TTSNotifierService", "onCreate()"); 
+		Log.v("TTSNotifierService", "onCreate()");
+		context = getApplicationContext();
 		mPrefs = PreferenceManager.getDefaultSharedPreferences(getBaseContext());
+		mAudioManager = (AudioManager)context.getSystemService(Context.AUDIO_SERVICE);
+		mTelephonyManager = (TelephonyManager)context.getSystemService(Context.TELEPHONY_SERVICE);
 		HandlerThread thread;
 		if (mPrefs.getBoolean("cbxRunWithHighPriority", false))
 			thread = new HandlerThread("HandleIntentTTSNotifier", Process.THREAD_PRIORITY_URGENT_AUDIO);
 		else
 			thread = new HandlerThread("HandleIntentTTSNotifier", Process.THREAD_PRIORITY_BACKGROUND);
 		thread.start();
-		context = getApplicationContext();
 		mServiceLooper = thread.getLooper();
 		mServiceHandler = new ServiceHandler(mServiceLooper);
 	}
 
 	@Override
 	public void onStart(Intent intent, int startId) {
-		Log.v("LODE", "F "+intent.getFlags());
 		Log.v("TTSNotifierService", "onStart()");
 		if (myTts == null)
 			myTts = new TTS(context, ttsInitListener, true);
@@ -95,6 +102,7 @@ public class TTSNotifierService extends Service {
 
 	@Override
 	public void onDestroy() {
+		stopRingtone = true;
 		ttsReady = false;
 		if (myTts != null) 
 			myTts.shutdown();
@@ -113,12 +121,13 @@ public class TTSNotifierService extends Service {
 
 		@Override
 		public void handleMessage(Message msg) {
-			//int serviceId = msg.arg1;
+			Log.v("TTSNotifierService", "handleMessage()");
+			
 			Intent intent = (Intent) msg.obj;
 			String action = intent.getAction();
-			//String dataType = intent.getType();
-
+			
 			readState();
+			storeAndUpdateVolume();
 
 			boolean cbxEnable = mPrefs.getBoolean("cbxEnable", false);
 			boolean cbxObeySilentMode = mPrefs.getBoolean("cbxObeySilentMode", true);
@@ -127,7 +136,11 @@ public class TTSNotifierService extends Service {
 			if (!cbxEnable) return;
 			if (cbxObeySilentMode && silentMode) return;
 
-			Log.v("TTSNotifier", "Action: " + action);
+			// When calling ignore other notifications
+			if (!ACTION_PHONE_STATE.equals(action) && (mTelephonyManager.getCallState() != TelephonyManager.CALL_STATE_IDLE))
+				return;
+			
+			Log.v("TTSNotifierService", "Action: " + action);
 
 			if (ACTION_PHONE_STATE.equals(action)) {
 				handleACTION_PHONE_STATE(intent);
@@ -152,14 +165,41 @@ public class TTSNotifierService extends Service {
 			} else if (ACTION_SUPPLICANT_CONNECTION_CHANGE_ACTION.equals(action)) {
 				handleSUPPLICANT_CONNECTION_CHANGE_ACTION(intent);
 			}
+			// ACTION_PHONE_STATE is different because we are using a thread there
+			if (!ACTION_PHONE_STATE.equals(action))
+				restoreVolume();
 		}
 	}
 
 	private void readState() {
-		AudioManager am = (AudioManager)context.getSystemService(Context.AUDIO_SERVICE);
-		silentMode = am.getRingerMode() != AudioManager.RINGER_MODE_NORMAL;
+		if (mAudioManager != null)
+			silentMode = mAudioManager.getRingerMode() != AudioManager.RINGER_MODE_NORMAL;
 	}
-
+	
+	private void storeAndUpdateVolume() {
+		if (mPrefs.getBoolean("cbxChangeVolume", false) && mAudioManager != null) {
+			int intOptionsTTSVolume = Math.min(mAudioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC), Math.max(0, Integer.parseInt(mPrefs.getString("intOptionsTTSVolume", "14"))));
+			oldStreamMusicVolume = mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
+			oldStreamRingtoneVolume = mAudioManager.getStreamVolume(AudioManager.STREAM_RING);
+			while (mAudioManager.getStreamVolume(AudioManager.STREAM_RING) > 1)
+				mAudioManager.adjustStreamVolume(AudioManager.STREAM_RING, AudioManager.ADJUST_LOWER, 0);
+			while (mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC) < intOptionsTTSVolume)
+				mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, 0);
+			while (mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC) > intOptionsTTSVolume)
+				mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, 0);
+		}
+	}
+	
+	private void restoreVolume() {
+		if (mPrefs.getBoolean("cbxChangeVolume", false) && mAudioManager != null) {
+			while (mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC) > oldStreamMusicVolume)
+				mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, 0);
+			while (mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC) < oldStreamMusicVolume)
+				mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, 0);
+			while (mAudioManager.getStreamVolume(AudioManager.STREAM_RING) < oldStreamRingtoneVolume)
+				mAudioManager.adjustStreamVolume(AudioManager.STREAM_RING, AudioManager.ADJUST_RAISE, 0);			
+		}
+	}
 
 	private void waitForSpeechInitialised() {
 		while (!ttsReady) {
@@ -172,13 +212,17 @@ public class TTSNotifierService extends Service {
 	}
 
 	private void waitForSpeechFinished() {
-		do {
+		try {
+			Thread.sleep(MEDIUM_THREADWAIT);
+		} catch (InterruptedException e) { }
+		while (myTts.isSpeaking()) {
 			try {
 				Thread.sleep(MEDIUM_THREADWAIT);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
-		} while (myTts.isSpeaking());
+			} catch (InterruptedException e) { }
+		}
+		try {
+			Thread.sleep(MEDIUM_THREADWAIT);
+		} catch (InterruptedException e) { }
 	}
 
 	private void waitForRingTonePlayed() {
@@ -194,7 +238,7 @@ public class TTSNotifierService extends Service {
 	private void waitForRingToneThreadStopped() {
 		while (stopRingtone) {
 			try {
-				Thread.sleep(FAST_THREADWAIT);
+				Thread.sleep(SHORT_THREADWAIT);
 			} catch (InterruptedException e) { 
 				e.printStackTrace();
 			}
@@ -202,12 +246,16 @@ public class TTSNotifierService extends Service {
 	}
 
 	private void playRingtone(boolean waitForFinish) throws IllegalStateException, IOException {
+		Log.v("TTSNotifierService", "playRingtone()" + myRingTonePlayer);
+		if (myRingTonePlayer == null) return;
 		myRingTonePlayer.start();
 		if (waitForFinish)
 			waitForRingTonePlayed();
 	}
-
+	
 	private void speak(String str, boolean waitForFinish) {
+		Log.v("TTSNotifierService", "speak():" + myTts);
+		if (myTts == null) return;
 		waitForSpeechInitialised();
 		myTts.speak(str, 0, null);
 		if (waitForFinish)
@@ -223,12 +271,14 @@ public class TTSNotifierService extends Service {
 		else
 			txtOptionsIncomingCall = "Phone call from %s";
 		final boolean cbxOptionsIncomingCallUseTTSRingtone = mPrefs.getBoolean("cbxOptionsIncomingCallUseTTSRingtone", false);
-		final String txtOptionsIncomingCallRingtone = mPrefs.getString("txtOptionsIncomingCallRingtone", "DEFAULT_RINGTONE_URI");
-		final int intOptionsIncomingCallMinimalRingCountTTSDelay = Integer.parseInt(mPrefs.getString("intOptionsIncomingCallMinimalRingCountTTSDelay", "2"));
-		// Logic
-		TelephonyManager telManager = (TelephonyManager)context.getSystemService(Context.TELEPHONY_SERVICE);
+		final String txtOptionsIncomingCallRingtone = mPrefs.getString("txtOptionsIncomingCallRingtone", Settings.System.DEFAULT_RINGTONE_URI.toString());
+		final int intOptionsIncomingCallMinimalRingCountBeforeTTS = Integer.parseInt(mPrefs.getString("intOptionsIncomingCallMinimalRingCountBeforeTTS", "2"));
+		final int intOptionsIncomingCallRingCountAfterTTS = Integer.parseInt(mPrefs.getString("intOptionsIncomingCallRingCountAfterTTS", "2"));
+		final int intOptionsIncomingCallTTSRepeats = Integer.parseInt(mPrefs.getString("intOptionsIncomingCallTTSRepeats", "2"));
+		final int intOptionsIncomingCallDelayBetweenRingtones = Integer.parseInt(mPrefs.getString("intOptionsIncomingCallDelayBetweenRingtones", "200"));
 		final String phoneNr = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
-		if (myRingtoneThread != null)
+		// Logic
+		if (mRingtoneThread != null)
 			stopRingtone = true;
 		if (myTts != null)
 			myTts.stop();
@@ -242,52 +292,77 @@ public class TTSNotifierService extends Service {
 				myRingTonePlayer = null;
 			}
 		}
-		if(telManager.getCallState() == TelephonyManager.CALL_STATE_RINGING) {
+		if (mTelephonyManager.getCallState() == TelephonyManager.CALL_STATE_RINGING) {
 			waitForRingToneThreadStopped();
-			myRingtoneThread = new Thread() {
+			mRingtoneThread = new Thread() {
 				public void run() {
 					try {
 						if (cbxOptionsIncomingCallUseTTSRingtone) {
 							if (myRingTonePlayer == null)
 								myRingTonePlayer = MediaPlayer.create(context, Uri.parse(txtOptionsIncomingCallRingtone));
 							int ringtoneState = 0;
+							int nrTTS = 0;
 							int ringCounter = 1;
 							while (!stopRingtone) {
-								Log.v("LODE", "CALL STATE :" + ringtoneState);
+								Log.v("TTSNotifierService", "CALL STATE :" + ringtoneState);
 								switch (ringtoneState) {
 								case 0:
 									playRingtone(true);
 									break;
 								case 1:
-									Log.v("LODE", "CALL STATE :" + ringCounter + " - "+ intOptionsIncomingCallMinimalRingCountTTSDelay);
-									if (!ttsReady || ringCounter < intOptionsIncomingCallMinimalRingCountTTSDelay) {
+									if (nrTTS >= intOptionsIncomingCallTTSRepeats) {
 										ringCounter += 1;
 										ringtoneState = -1;
+										try {
+											Thread.sleep(intOptionsIncomingCallDelayBetweenRingtones);
+										} catch (InterruptedException e) { }
+									} else if (nrTTS == 0) {
+										if (!ttsReady || ringCounter < intOptionsIncomingCallMinimalRingCountBeforeTTS) {
+											ringCounter += 1;
+											ringtoneState = -1;
+											try {
+												Thread.sleep(intOptionsIncomingCallDelayBetweenRingtones);
+											} catch (InterruptedException e) { }
+										}
+									} else {
+										if (!ttsReady || ringCounter < intOptionsIncomingCallRingCountAfterTTS) {
+											ringCounter += 1;
+											ringtoneState = -1;
+											try {
+												Thread.sleep(intOptionsIncomingCallDelayBetweenRingtones);
+											} catch (InterruptedException e) { }
+										}
 									}
 									break;
 								case 2:
 									speak(String.format(txtOptionsIncomingCall, getContactNameFromNumber(phoneNr)), true);
+									nrTTS += 1;
 									break;
 								case 3:
 									ringtoneState = -1;
 									ringCounter = 1;
+									try {
+										Thread.sleep(intOptionsIncomingCallDelayBetweenRingtones);
+									} catch (InterruptedException e) { }
 									break;
 								}
 								ringtoneState += 1;
 							}
 						} else {
-							speak(String.format(txtOptionsIncomingCall, getContactNameFromNumber(phoneNr)), false);
+							speak(String.format(txtOptionsIncomingCall, getContactNameFromNumber(phoneNr)), true);
 						}
 					} catch (IllegalStateException e) {
 						e.printStackTrace();
 					} catch (IOException e) {
 						e.printStackTrace();
 					}
-					myRingtoneThread = null;
+					mRingtoneThread = null;
 					stopRingtone = false;
 				}
 			};
-			myRingtoneThread.start();
+			mRingtoneThread.start();
+		} else {
+			restoreVolume();
 		}
 	}
 
@@ -317,8 +392,6 @@ public class TTSNotifierService extends Service {
 				body = bodyText.toString();
 			}
 			String address = messages[0].getDisplayOriginatingAddress();
-			Log.v("LODE", "PHONE: " +address);
-			Log.v("LODE", "BODY: "+body);
 			speak(String.format(txtOptionsIncomingSMS, getContactNameFromNumber(address), body), true);
 		}
 	}
@@ -387,7 +460,7 @@ public class TTSNotifierService extends Service {
 			txtOptionsWifiDiscovered = "Wyfy Signal in Range";
 		// Logic
 		if (!cbxEnableWifiDiscovered) return;
-		speak(txtOptionsWifiDiscovered, false);	
+		speak(txtOptionsWifiDiscovered, true);	
 	}
 
 	private void handleACTION_WIFI_STATE_CHANGE(Intent intent) {
@@ -401,7 +474,7 @@ public class TTSNotifierService extends Service {
 		NetworkInfo ni = intent.getParcelableExtra(WifiManager.EXTRA_NETWORK_INFO);
 		if (ni == null) return;
 		if (cbxEnableWifiConnect && ni.getState() == NetworkInfo.State.CONNECTED)
-			speak(txtOptionsWifiConnected, false);
+			speak(txtOptionsWifiConnected, true);
 	}
 
 	private void handleSUPPLICANT_CONNECTION_CHANGE_ACTION(Intent intent) {
@@ -414,13 +487,13 @@ public class TTSNotifierService extends Service {
 			txtOptionsWifiDisconnected = "Wyfy disconnected";
 		// Logic
 		if (cbxEnableWifiDisconnect && !intent.getBooleanExtra(WifiManager.EXTRA_SUPPLICANT_CONNECTED, true))
-			speak(txtOptionsWifiDisconnected, false);
+			speak(txtOptionsWifiDisconnected, true);
 	}
 
 	private TTS.InitListener ttsInitListener = new TTS.InitListener() {
 		@Override
 		public void onInit(int version) {
-			Log.v("TTSNotifier", "TTS INIT DONE");
+			Log.v("TTSNotifierService", "TTS INIT DONE");
 			ttsReady = true;
 		}
 	};
