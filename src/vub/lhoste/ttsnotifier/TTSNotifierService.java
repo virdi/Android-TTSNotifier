@@ -67,8 +67,12 @@ public class TTSNotifierService extends Service {
 	@Override
 	public void onCreate() {
 		Log.v("TTSNotifierService", "onCreate()"); 
-		//HandlerThread thread = new HandlerThread("HandleIntentTTSNotifier", Process.THREAD_PRIORITY_BACKGROUND);
-		HandlerThread thread = new HandlerThread("HandleIntentTTSNotifier", Process.THREAD_PRIORITY_URGENT_AUDIO);
+		mPrefs = PreferenceManager.getDefaultSharedPreferences(getBaseContext());
+		HandlerThread thread;
+		if (mPrefs.getBoolean("cbxRunWithHighPriority", false))
+			thread = new HandlerThread("HandleIntentTTSNotifier", Process.THREAD_PRIORITY_URGENT_AUDIO);
+		else
+			thread = new HandlerThread("HandleIntentTTSNotifier", Process.THREAD_PRIORITY_BACKGROUND);
 		thread.start();
 		context = getApplicationContext();
 		mServiceLooper = thread.getLooper();
@@ -81,7 +85,6 @@ public class TTSNotifierService extends Service {
 		Log.v("TTSNotifierService", "onStart()");
 		if (myTts == null)
 			myTts = new TTS(context, ttsInitListener, true);
-		mPrefs = PreferenceManager.getDefaultSharedPreferences(getBaseContext());
 		Message msg = mServiceHandler.obtainMessage();
 		msg.arg1 = startId;
 		msg.obj = intent;
@@ -208,9 +211,9 @@ public class TTSNotifierService extends Service {
 	}
 
 	private void handleACTION_PHONE_STATE(Intent intent) {
-		// Load Preferences
-		boolean cbxEnableIncomingCall = mPrefs.getBoolean("cbxEnableIncomingCall", true);
+		if (!mPrefs.getBoolean("cbxEnableIncomingCall", true)) return;
 		final String txtOptionsIncomingCall;
+		// Preferences
 		if (mPrefs.getBoolean("cbxOptionsIncomingCallUserDefinedText", false))
 			txtOptionsIncomingCall = mPrefs.getString("txtOptionsIncomingCall", "Phone call from %s");
 		else
@@ -219,7 +222,6 @@ public class TTSNotifierService extends Service {
 		final String txtOptionsIncomingCallRingtone = mPrefs.getString("txtOptionsIncomingCallRingtone", "DEFAULT_RINGTONE_URI");
 		final int intOptionsIncomingCallMinimalRingCountTTSDelay = Integer.parseInt(mPrefs.getString("intOptionsIncomingCallMinimalRingCountTTSDelay", "2"));
 		// Logic
-		if (!cbxEnableIncomingCall) return;
 		TelephonyManager telManager = (TelephonyManager)context.getSystemService(Context.TELEPHONY_SERVICE);
 		final String phoneNr = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
 		if (myRingtoneThread != null)
@@ -286,6 +288,7 @@ public class TTSNotifierService extends Service {
 	}
 
 	private void handleACTION_SMS_RECEIVED(Intent intent) {
+		if (!mPrefs.getBoolean("cbxEnableIncomingSMS", true)) return;
 		String txtOptionsIncomingSMS;
 		// Preferences
 		if (mPrefs.getBoolean("cbxOptionsIncomingSMSOnlyAnnouncePerson", true))
@@ -295,51 +298,78 @@ public class TTSNotifierService extends Service {
 		else
 			txtOptionsIncomingSMS = "New text message from %s about %s";
 		// Logic
-		if (intent.getAction().equals(ACTION_SMS_RECEIVED)) {  
-			SmsMessage[] messages = getMessagesFromIntent(intent);
-			if (messages == null) return;
-			SmsMessage sms = messages[0];
-			if (sms.getMessageClass() != SmsMessage.MessageClass.CLASS_0 && !sms.isReplace()) {
-				String body;
-				if (messages.length == 1) {
-					body = messages[0].getDisplayMessageBody();
-				} else {
-					StringBuilder bodyText = new StringBuilder();
-					for (int i = 0; i < messages.length; i++) {
-						bodyText.append(messages[i].getMessageBody());
-					}   
-					body = bodyText.toString();
-				}
-				String address = messages[0].getDisplayOriginatingAddress();
-				Log.v("LODE", "PHONE: " +address);
-				Log.v("LODE", "BODY: "+body);
-				speak(String.format(txtOptionsIncomingSMS, getContactNameFromNumber(address), body), true);
+		SmsMessage[] messages = getMessagesFromIntent(intent);
+		if (messages == null) return;
+		SmsMessage sms = messages[0];
+		if (sms.getMessageClass() != SmsMessage.MessageClass.CLASS_0 && !sms.isReplace()) {
+			String body;
+			if (messages.length == 1) {
+				body = messages[0].getDisplayMessageBody();
+			} else {
+				StringBuilder bodyText = new StringBuilder();
+				for (int i = 0; i < messages.length; i++) {
+					bodyText.append(messages[i].getMessageBody());
+				}   
+				body = bodyText.toString();
 			}
+			String address = messages[0].getDisplayOriginatingAddress();
+			Log.v("LODE", "PHONE: " +address);
+			Log.v("LODE", "BODY: "+body);
+			speak(String.format(txtOptionsIncomingSMS, getContactNameFromNumber(address), body), true);
 		}
 	}
 
 	public void handleACTION_BATTERY_LOW(Intent intent) {
-		// TODO Auto-generated method stub		
+		if (!mPrefs.getBoolean("cbxEnableBatteryLow", true)) return;
+		String txtOptionsBatteryLowWarningText;
+		// Preferences
+		if (mPrefs.getBoolean("cbxOptionsBatteryLowWarningUserDefinedText", true))
+			txtOptionsBatteryLowWarningText = mPrefs.getString("txtOptionsBatteryLowWarningText", "Your battery is low");
+		else
+			txtOptionsBatteryLowWarningText = "Your battery is low";
+		speak(txtOptionsBatteryLowWarningText, true);
 	}
 
 	public void handleACTION_MEDIA_BAD_REMOVAL(Intent intent) {
-		// TODO Auto-generated method stub	
+		if (!mPrefs.getBoolean("cbxEnableBadMediaRemoval", true)) return;
+		String txtOptionsMediaBadRemovalText;
+		if (mPrefs.getBoolean("cbxOptionsMediaBadRemovalUserDefinedText", true))
+			txtOptionsMediaBadRemovalText = mPrefs.getString("txtOptionsMediaBadRemovalText", "Media removed before it was unmounted");
+		else
+			txtOptionsMediaBadRemovalText = "Media removed before it was unmounted";
+		speak(txtOptionsMediaBadRemovalText, true);
 	}
 
-	public void handleACTION_BOOT_COMPLETED(Intent intent) {
-		// TODO Auto-generated method stub		
-	}
+	public void handleACTION_BOOT_COMPLETED(Intent intent) { }
 
 	public void handleACTION_PROVIDER_CHANGED(Intent intent) {
-		// TODO Auto-generated method stub		
+		if (!mPrefs.getBoolean("cbxEnableProviderChanged", true)) return;
+		String txtOptionsProviderChangedText;
+		if (mPrefs.getBoolean("cbxOptionsProviderChangedUserDefinedText", true))
+			txtOptionsProviderChangedText = mPrefs.getString("txtOptionsProviderChangedText", "Phone provider changed");
+		else
+			txtOptionsProviderChangedText = "Phone provider changed";
+		speak(txtOptionsProviderChangedText, true);
 	}
 
 	public void handleACTION_UMS_CONNECTED(Intent intent) {
-		// TODO Auto-generated method stub
+		if (!mPrefs.getBoolean("cbxEnableUMSConnected", true)) return;
+		String txtOptionsMediaBadRemovalText;
+		if (mPrefs.getBoolean("cbxOptionsUMSConnectedUserDefinedText", true))
+			txtOptionsMediaBadRemovalText = mPrefs.getString("txtOptionsUMSConnectedText", "PC connected");
+		else
+			txtOptionsMediaBadRemovalText = "PC connected";
+		speak(txtOptionsMediaBadRemovalText, true);
 	}
 
 	public void handleACTION_UMS_DISCONNECTED(Intent intent) {
-		// TODO Auto-generated method stub
+		if (!mPrefs.getBoolean("cbxEnableUMSDisconnected", true)) return;
+		String txtOptionsUMSDisconnectedText;
+		if (mPrefs.getBoolean("cbxOptionsUMSDisconnectedUserDefinedText", true))
+			txtOptionsUMSDisconnectedText = mPrefs.getString("txtOptionsUMSDisconnectedText", "PC disconnected");
+		else
+			txtOptionsUMSDisconnectedText = "PC disconnected";
+		speak(txtOptionsUMSDisconnectedText, true);
 	}
 
 	public void handleACTION_PICK_WIFI_NETWORK(Intent intent) {
@@ -357,7 +387,8 @@ public class TTSNotifierService extends Service {
 
 	private void handleSUPPLICANT_CONNECTION_CHANGE_ACTION(Intent intent) {
 		// Preferences
-		boolean cbxEnableWifiConnectDisconnect = mPrefs.getBoolean("cbxEnableWifiConnectDisconnect", true);
+		boolean cbxEnableWifiConnect = mPrefs.getBoolean("cbxEnableWifiConnect", true);
+		boolean cbxEnableWifiDisconnect = mPrefs.getBoolean("cbxEnableWifiDisconnect", true);
 		String txtOptionsWifiConnected;
 		if (mPrefs.getBoolean("cbxOptionsWifiConnectedUserDefinedText", false))
 			txtOptionsWifiConnected = mPrefs.getString("txtOptionsWifiConnected", "Wyfy connected");
@@ -369,8 +400,8 @@ public class TTSNotifierService extends Service {
 		else
 			txtOptionsWifiDisconnected = "Wyfy disconnected";
 		// Logic
-		if (!cbxEnableWifiConnectDisconnect) return;
-		Log.v("LODE", txtOptionsWifiConnected);
+		if (!cbxEnableWifiConnect && intent.getBooleanExtra(WifiManager.EXTRA_SUPPLICANT_CONNECTED, true)) return;
+		if (!cbxEnableWifiDisconnect && !intent.getBooleanExtra(WifiManager.EXTRA_SUPPLICANT_CONNECTED, true)) return;
 		if (intent.getBooleanExtra(WifiManager.EXTRA_SUPPLICANT_CONNECTED, true)) {
 			speak(txtOptionsWifiConnected, false);			
 		} else {
