@@ -50,6 +50,7 @@ public class TTSNotifierService extends Service {
 	private static final int SHORT_THREADWAIT = 50;
 
 	private volatile static TTS myTts = null;
+	private volatile static boolean myTtsFirstTime = true;
 	private volatile MediaPlayer myRingTonePlayer = null;
 	private volatile boolean stopRingtone = false;
 	private volatile boolean ttsReady = false;
@@ -107,6 +108,7 @@ public class TTSNotifierService extends Service {
 		if (myTts != null) 
 			myTts.shutdown();
 		myTts = null;
+		myTtsFirstTime = true;
 		if (myRingTonePlayer != null)
 			myRingTonePlayer.release();
 		myRingTonePlayer = null;
@@ -177,12 +179,12 @@ public class TTSNotifierService extends Service {
 	}
 	
 	private void storeAndUpdateVolume() {
-		if (mPrefs.getBoolean("cbxChangeVolume", false) && mAudioManager != null) {
+		if (mPrefs.getBoolean("cbxChangeVolume", false) && mAudioManager != null && mRingtoneThread == null) {
 			int intOptionsTTSVolume = Math.min(mAudioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC), Math.max(0, Integer.parseInt(mPrefs.getString("intOptionsTTSVolume", "14"))));
+			Log.v("LODE", "OLD VOL1: " + mAudioManager.getStreamVolume(AudioManager.STREAM_RING));
 			oldStreamMusicVolume = mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
 			oldStreamRingtoneVolume = mAudioManager.getStreamVolume(AudioManager.STREAM_RING);
-			while (mAudioManager.getStreamVolume(AudioManager.STREAM_RING) > 1)
-				mAudioManager.adjustStreamVolume(AudioManager.STREAM_RING, AudioManager.ADJUST_LOWER, 0);
+			Log.v("LODE", "OLD VOL2: " + oldStreamRingtoneVolume);
 			while (mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC) < intOptionsTTSVolume)
 				mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, 0);
 			while (mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC) > intOptionsTTSVolume)
@@ -192,6 +194,7 @@ public class TTSNotifierService extends Service {
 	
 	private void restoreVolume() {
 		if (mPrefs.getBoolean("cbxChangeVolume", false) && mAudioManager != null) {
+			Log.v("LODE", "OLD VOL: " + oldStreamRingtoneVolume);
 			while (mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC) > oldStreamMusicVolume)
 				mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, 0);
 			while (mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC) < oldStreamMusicVolume)
@@ -212,12 +215,23 @@ public class TTSNotifierService extends Service {
 	}
 
 	private void waitForSpeechFinished() {
+		if (myTtsFirstTime) {
+			try {
+				Thread.sleep(LONG_THREADWAIT);
+			} catch (InterruptedException e) { }
+		}
 		try {
 			Thread.sleep(MEDIUM_THREADWAIT);
 		} catch (InterruptedException e) { }
 		while (myTts.isSpeaking()) {
 			try {
 				Thread.sleep(MEDIUM_THREADWAIT);
+			} catch (InterruptedException e) { }
+		}
+		if (myTtsFirstTime) {
+			myTtsFirstTime = false;
+			try {
+				Thread.sleep(LONG_THREADWAIT);
 			} catch (InterruptedException e) { }
 		}
 		try {
@@ -298,6 +312,8 @@ public class TTSNotifierService extends Service {
 				public void run() {
 					try {
 						if (cbxOptionsIncomingCallUseTTSRingtone) {
+							while (mAudioManager.getStreamVolume(AudioManager.STREAM_RING) > 1)
+								mAudioManager.adjustStreamVolume(AudioManager.STREAM_RING, AudioManager.ADJUST_LOWER, 0);
 							if (myRingTonePlayer == null)
 								myRingTonePlayer = MediaPlayer.create(context, Uri.parse(txtOptionsIncomingCallRingtone));
 							int ringtoneState = 0;
