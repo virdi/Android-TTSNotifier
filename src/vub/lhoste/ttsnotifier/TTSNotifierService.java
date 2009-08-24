@@ -6,12 +6,14 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager.NameNotFoundException;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.database.Cursor;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.net.wifi.WifiManager;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
@@ -20,9 +22,10 @@ import android.os.Message;
 import android.os.Process;
 import android.preference.PreferenceManager;
 import android.provider.Contacts;
-import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
+import android.telephony.gsm.SmsMessage;
 import android.util.Log;
+import android.widget.Toast;
 
 import com.google.tts.TTS;
 
@@ -50,23 +53,10 @@ public class TTSNotifierService extends Service {
 	private Context context;
 	private ServiceHandler mServiceHandler;
 	private Looper mServiceLooper;
-
-	// Settings
-	private boolean cbxEnable;
-	private boolean cbxEnableIncomingCall;
-	private boolean cbxEnableWifiConnectDisconnect;
-	private boolean cbxEnableWifiDiscovered;
-	private boolean cbxObeySilentMode;
-	private String txtOptionsIncomingCall;
-	private String txtOptionsWifiDiscovered;
-	private String txtOptionsWifiConnected;
-	private String txtOptionsWifiDisconnected;
+	private SharedPreferences mPrefs;
 
 	// State
 	private boolean silentMode = false;
-	private boolean cbxOptionsIncomingCallUseTTSRingtone;
-	private String txtOptionsIncomingCallRingtone;
-	private Integer intOptionsIncomingCallMinimalRingCountTTSDelay;
 	private Thread myRingtoneThread;
 
 	@Override
@@ -76,7 +66,7 @@ public class TTSNotifierService extends Service {
 
 	@Override
 	public void onCreate() {
-		Log.v("TTSNotifierService", "onCreate()");
+		Log.v("TTSNotifierService", "onCreate()"); 
 		//HandlerThread thread = new HandlerThread("HandleIntentTTSNotifier", Process.THREAD_PRIORITY_BACKGROUND);
 		HandlerThread thread = new HandlerThread("HandleIntentTTSNotifier", Process.THREAD_PRIORITY_URGENT_AUDIO);
 		thread.start();
@@ -87,9 +77,11 @@ public class TTSNotifierService extends Service {
 
 	@Override
 	public void onStart(Intent intent, int startId) {
+		Log.v("LODE", "F "+intent.getFlags());
 		Log.v("TTSNotifierService", "onStart()");
 		if (myTts == null)
-			myTts = new TTS(this, ttsInitListener, true);
+			myTts = new TTS(context, ttsInitListener, true);
+		mPrefs = PreferenceManager.getDefaultSharedPreferences(getBaseContext());
 		Message msg = mServiceHandler.obtainMessage();
 		msg.arg1 = startId;
 		msg.obj = intent;
@@ -120,7 +112,11 @@ public class TTSNotifierService extends Service {
 			Intent intent = (Intent) msg.obj;
 			String action = intent.getAction();
 			//String dataType = intent.getType();
-			readSettings();
+
+			readState();
+
+			boolean cbxEnable = mPrefs.getBoolean("cbxEnable", false);
+			boolean cbxObeySilentMode = mPrefs.getBoolean("cbxObeySilentMode", true);
 
 			if (action == null) return;
 			if (!cbxEnable) return;
@@ -152,43 +148,7 @@ public class TTSNotifierService extends Service {
 		}
 	}
 
-	public static boolean isTtsInstalled(Context ctx){
-		try {
-			ctx.createPackageContext("com.google.tts", 0);
-		} catch (NameNotFoundException e) {
-			return false;
-		}
-		return true;
-	}
-
-	private void readSettings() {
-		// Preferences
-		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getBaseContext());
-		cbxEnable = prefs.getBoolean("cbxEnable", false);
-		cbxEnableIncomingCall = prefs.getBoolean("cbxEnableIncomingCall", true);
-		cbxEnableWifiDiscovered = prefs.getBoolean("cbxEnableWifiDiscovered", true);
-		cbxEnableWifiConnectDisconnect = prefs.getBoolean("cbxEnableWifiConnectDisconnect", true);
-		cbxObeySilentMode = prefs.getBoolean("cbxObeySilentMode", true);
-		if (prefs.getBoolean("cbxOptionsIncomingCallUserDefinedText", false))
-			txtOptionsIncomingCall = prefs.getString("txtOptionsIncomingCall", "Phone call from %s");
-		else
-			txtOptionsIncomingCall = "Phone call from %s";
-		cbxOptionsIncomingCallUseTTSRingtone = prefs.getBoolean("cbxOptionsIncomingCallUseTTSRingtone", false);
-		txtOptionsIncomingCallRingtone = prefs.getString("txtOptionsIncomingCallRingtone", "DEFAULT_RINGTONE_URI");
-		intOptionsIncomingCallMinimalRingCountTTSDelay = Integer.parseInt(prefs.getString("intOptionsIncomingCallMinimalRingCountTTSDelay", "2"));
-		if (prefs.getBoolean("cbxOptionsWifiDiscoveredUserDefinedText", false))
-			txtOptionsWifiDiscovered = prefs.getString("txtOptionsWifiDiscovered", "Wyfy Signal in Range");
-		else
-			txtOptionsWifiDiscovered = "Wifi Signal in Range";
-		if (prefs.getBoolean("cbxOptionsWifiConnectedUserDefinedText", false))
-			txtOptionsWifiConnected = prefs.getString("txtOptionsWifiConnected", "Wyfy connected");
-		else
-			txtOptionsWifiConnected = "Wifi connected";
-		if (prefs.getBoolean("cbxOptionsWifiDisconnectedUserDefinedText", true))
-			txtOptionsWifiDisconnected = prefs.getString("txtOptionsWifiDisconnected", "Wyfy disconnected");
-		else
-			txtOptionsWifiDisconnected = "Wifi disconnected";
-		// State
+	private void readState() {
 		AudioManager am = (AudioManager)context.getSystemService(Context.AUDIO_SERVICE);
 		silentMode = am.getRingerMode() != AudioManager.RINGER_MODE_NORMAL;
 	}
@@ -248,6 +208,17 @@ public class TTSNotifierService extends Service {
 	}
 
 	private void handleACTION_PHONE_STATE(Intent intent) {
+		// Load Preferences
+		boolean cbxEnableIncomingCall = mPrefs.getBoolean("cbxEnableIncomingCall", true);
+		final String txtOptionsIncomingCall;
+		if (mPrefs.getBoolean("cbxOptionsIncomingCallUserDefinedText", false))
+			txtOptionsIncomingCall = mPrefs.getString("txtOptionsIncomingCall", "Phone call from %s");
+		else
+			txtOptionsIncomingCall = "Phone call from %s";
+		final boolean cbxOptionsIncomingCallUseTTSRingtone = mPrefs.getBoolean("cbxOptionsIncomingCallUseTTSRingtone", false);
+		final String txtOptionsIncomingCallRingtone = mPrefs.getString("txtOptionsIncomingCallRingtone", "DEFAULT_RINGTONE_URI");
+		final int intOptionsIncomingCallMinimalRingCountTTSDelay = Integer.parseInt(mPrefs.getString("intOptionsIncomingCallMinimalRingCountTTSDelay", "2"));
+		// Logic
 		if (!cbxEnableIncomingCall) return;
 		TelephonyManager telManager = (TelephonyManager)context.getSystemService(Context.TELEPHONY_SERVICE);
 		final String phoneNr = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
@@ -282,7 +253,7 @@ public class TTSNotifierService extends Service {
 									playRingtone(true);
 									break;
 								case 1:
-									Log.v("LODE", "CALL STATE :" + ringCounter + " - "+intOptionsIncomingCallMinimalRingCountTTSDelay);
+									Log.v("LODE", "CALL STATE :" + ringCounter + " - "+ intOptionsIncomingCallMinimalRingCountTTSDelay);
 									if (!ttsReady || ringCounter < intOptionsIncomingCallMinimalRingCountTTSDelay) {
 										ringCounter += 1;
 										ringtoneState = -1;
@@ -315,7 +286,36 @@ public class TTSNotifierService extends Service {
 	}
 
 	private void handleACTION_SMS_RECEIVED(Intent intent) {
-		// TODO
+		String txtOptionsIncomingSMS;
+		// Preferences
+		if (mPrefs.getBoolean("cbxOptionsIncomingSMSOnlyAnnouncePerson", true))
+			txtOptionsIncomingSMS = "New text message from %s";
+		else if (mPrefs.getBoolean("cbxOptionsIncomingSMSUserDefinedText", true))
+			txtOptionsIncomingSMS = mPrefs.getString("txtOptionsIncomingSMS", "New text message from %s about %s");
+		else
+			txtOptionsIncomingSMS = "New text message from %s about %s";
+		// Logic
+		if (intent.getAction().equals(ACTION_SMS_RECEIVED)) {  
+			SmsMessage[] messages = getMessagesFromIntent(intent);
+			if (messages == null) return;
+			SmsMessage sms = messages[0];
+			if (sms.getMessageClass() != SmsMessage.MessageClass.CLASS_0 && !sms.isReplace()) {
+				String body;
+				if (messages.length == 1) {
+					body = messages[0].getDisplayMessageBody();
+				} else {
+					StringBuilder bodyText = new StringBuilder();
+					for (int i = 0; i < messages.length; i++) {
+						bodyText.append(messages[i].getMessageBody());
+					}   
+					body = bodyText.toString();
+				}
+				String address = messages[0].getDisplayOriginatingAddress();
+				Log.v("LODE", "PHONE: " +address);
+				Log.v("LODE", "BODY: "+body);
+				speak(String.format(txtOptionsIncomingSMS, getContactNameFromNumber(address), body), true);
+			}
+		}
 	}
 
 	public void handleACTION_BATTERY_LOW(Intent intent) {
@@ -343,11 +343,32 @@ public class TTSNotifierService extends Service {
 	}
 
 	public void handleACTION_PICK_WIFI_NETWORK(Intent intent) {
+		// Preferences
+		boolean cbxEnableWifiDiscovered = mPrefs.getBoolean("cbxEnableWifiDiscovered", true);
+		String txtOptionsWifiDiscovered;
+		if (mPrefs.getBoolean("cbxOptionsWifiDiscoveredUserDefinedText", false))
+			txtOptionsWifiDiscovered = mPrefs.getString("txtOptionsWifiDiscovered", "Wyfy Signal in Range");
+		else
+			txtOptionsWifiDiscovered = "Wyfy Signal in Range";
+		// Logic
 		if (!cbxEnableWifiDiscovered) return;
 		speak(txtOptionsWifiDiscovered, false);	
 	}
 
 	private void handleSUPPLICANT_CONNECTION_CHANGE_ACTION(Intent intent) {
+		// Preferences
+		boolean cbxEnableWifiConnectDisconnect = mPrefs.getBoolean("cbxEnableWifiConnectDisconnect", true);
+		String txtOptionsWifiConnected;
+		if (mPrefs.getBoolean("cbxOptionsWifiConnectedUserDefinedText", false))
+			txtOptionsWifiConnected = mPrefs.getString("txtOptionsWifiConnected", "Wyfy connected");
+		else
+			txtOptionsWifiConnected = "Wyfy connected";
+		String txtOptionsWifiDisconnected;
+		if (mPrefs.getBoolean("cbxOptionsWifiDisconnectedUserDefinedText", true))
+			txtOptionsWifiDisconnected = mPrefs.getString("txtOptionsWifiDisconnected", "Wyfy disconnected");
+		else
+			txtOptionsWifiDisconnected = "Wyfy disconnected";
+		// Logic
 		if (!cbxEnableWifiConnectDisconnect) return;
 		Log.v("LODE", txtOptionsWifiConnected);
 		if (intent.getBooleanExtra(WifiManager.EXTRA_SUPPLICANT_CONNECTED, true)) {
@@ -365,6 +386,18 @@ public class TTSNotifierService extends Service {
 		}
 	};
 
+
+	public static boolean isTtsInstalled(Context ctx) {
+		PackageManager pm = ctx.getPackageManager();
+		Intent intent = new Intent("android.intent.action.USE_TTS");
+		intent.addCategory("android.intent.category.TTS");
+		ResolveInfo info = pm.resolveService(intent, 0); 
+		if (info == null) {
+			return false;
+		}   
+		return true;
+	}
+
 	private String getContactNameFromNumber(String number) {
 		String[] projection = new String[] {
 				Contacts.Phones.DISPLAY_NAME,
@@ -380,8 +413,32 @@ public class TTSNotifierService extends Service {
 		return "Unknown";
 	}
 
-	public static void beginStartingService(Context context, Intent intent) {
-		context.startService(intent);
+	private SmsMessage[] getMessagesFromIntent(Intent intent)
+	{
+		SmsMessage retMsgs[] = null;
+		Bundle bdl = intent.getExtras();
+		try{
+			Object pdus[] = (Object [])bdl.get("pdus");
+			retMsgs = new SmsMessage[pdus.length];
+			for(int n=0; n < pdus.length; n++)
+			{
+				byte[] byteData = (byte[])pdus[n];
+				retMsgs[n] =
+					SmsMessage.createFromPdu(byteData);
+			}        
+		}
+		catch(Exception e)
+		{
+			Log.e("GetMessages", "fail", e);
+		}
+		return retMsgs;
 	}
 
+	public static void beginStartingService(Context context, Intent intent) {
+		//intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
+		if (isTtsInstalled(context))
+			context.startService(intent);
+		else
+			Toast.makeText(context, "TTSNotifier: TTS not installed! Install it from the market!", Toast.LENGTH_LONG).show();
+	}
 }

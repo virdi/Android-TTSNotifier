@@ -10,6 +10,7 @@ public class TTSNotifierStartServiceActivity extends Activity {
 		super.onCreate(icicle);
 		try {
 			Intent svc = new Intent(this, TTSNotifierService.class);
+			//svc.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
 			startService(svc);
 		}
 		catch (Exception e) { }

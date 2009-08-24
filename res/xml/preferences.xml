@@ -7,23 +7,25 @@
 		<CheckBoxPreference android:title="Incoming call"
 			android:defaultValue="true" android:summary="enable TTS on incoming call"
 			android:dependency="cbxEnable" android:key="cbxEnableIncomingCall" />
-		<!--
-			<CheckBoxPreference android:title="Incoming SMS"
+		<CheckBoxPreference android:title="Incoming SMS"
 			android:defaultValue="true" android:summary="enable TTS on incoming
-			SMS" android:key="checkboxPref" /> <CheckBoxPreference
-			android:title="Battery low" android:defaultValue="true"
-			android:summary="enable TTS on battery low warning"
-			android:key="checkboxPref" /> <CheckBoxPreference android:title="Bad
-			media removal" android:defaultValue="true" android:summary="enable
-			TTS on bad media removal" android:key="checkboxPref" />
-			<CheckBoxPreference android:title="Provider changed"
-			android:defaultValue="true" android:summary="enable TTS on provider
-			change" android:key="checkboxPref" /> <CheckBoxPreference
-			android:title="PC connected" android:defaultValue="true"
-			android:summary="enable TTS on PC connected"
+			SMS"
+			android:dependency="cbxEnable" android:key="checkboxPref" />
+		<!--
+			<CheckBoxPreference android:title="Battery low"
+			android:defaultValue="true" android:summary="enable TTS on battery
+			low warning" android:key="checkboxPref" /> <CheckBoxPreference
+			android:title="Bad media removal" android:defaultValue="true"
+			android:summary="enable TTS on bad media removal"
+			android:key="checkboxPref" /> <CheckBoxPreference
+			android:title="Provider changed" android:defaultValue="true"
+			android:summary="enable TTS on provider change"
 			android:key="checkboxPref" /> <CheckBoxPreference android:title="PC
-			disconnected" android:defaultValue="true" android:summary="enable TTS
-			on PC disconnected" android:key="checkboxPref" />
+			connected" android:defaultValue="true" android:summary="enable TTS on
+			PC connected" android:key="checkboxPref" /> <CheckBoxPreference
+			android:title="PC disconnected" android:defaultValue="true"
+			android:summary="enable TTS on PC disconnected"
+			android:key="checkboxPref" />
 		-->
 		<CheckBoxPreference android:title="Wifi discovered"
 			android:defaultValue="true" android:summary="enable TTS when wifi discovered"
@@ -61,6 +63,21 @@
 		<RingtonePreference android:title="TTS Ringtone"
 			android:summary="Select a ringtone" android:key="txtOptionsIncomingCallRingtone"
 			android:dependency="cbxOptionsIncomingCallUseTTSRingtone" />
+	</PreferenceCategory>
+	<PreferenceCategory android:title="Extra options for incoming SMS">
+		<CheckBoxPreference android:title="Do not announce the body"
+			android:defaultValue="true"
+			android:summary="Only announce the person sending, not the body of the message"
+			android:key="cbxOptionsIncomingSMSOnlyAnnouncePerson" />
+		<CheckBoxPreference android:title="Use user-defined text"
+			android:defaultValue="false" android:summary="user-defined text will be used as the TTS"
+			android:dependency="cbxOptionsIncomingSMSOnlyAnnouncePerson"
+			android:key="cbxOptionsIncomingSMSUserDefinedText" />
+		<EditTextPreference
+			android:summary="Set your own incoming SMS (first %s is name, second %s is the body)"
+			android:defaultValue="New text message from %s about %s"
+			android:dependency="cbxOptionsIncomingSMSUserDefinedText"
+			android:title="Set speech text" android:key="txtOptionsIncomingSMS" />
 	</PreferenceCategory>
 	<PreferenceCategory android:title="Extra options for wifi discovered">
 		<CheckBoxPreference android:title="Use user-defined text"

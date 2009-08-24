@@ -16,10 +16,13 @@ This package containts:
 
 The program is free software and is copyrighted under the GNU General Public License. It comes with absolutely no warranty. See the file COPYING for details.
 
+
 Written by Lode Hoste
 Email: zillode@zillode.be
 
 Thanks to xda-developers for the cool idea(s) ;-)
+Thanks to all the people at android-smspopup for the effort and releasing the code with the GPLv3 license, the structure of TTS Notifier is largely based on your design.
+
 
 For news and updates have a look at my homepage:
 	http://www.zillode.be
