@@ -17,16 +17,16 @@
 			android:defaultValue="true" android:summary="enable TTS on bad media removal"
 			android:dependency="cbxEnable" android:key="cbxEnableBadMediaRemoval" />
 		<CheckBoxPreference android:title="Provider changed"
-			android:defaultValue="true" android:summary="enable TTS on provider change"
+			android:defaultValue="true" android:summary="enable TTS on provider changed"
 			android:dependency="cbxEnable" android:key="cbxEnableProviderChanged" />
-		<CheckBoxPreference android:title="UMS connected"
-			android:defaultValue="true" android:summary="enable TTS on UMS connected"
-			android:dependency="cbxEnable" android:key="cbxEnableUMSConnected" />
-		<CheckBoxPreference android:title="UMS disconnected"
-			android:defaultValue="true" android:summary="enable TTS on UMS disconnected"
-			android:dependency="cbxEnable" android:key="cbxEnableUMSDisconnected" />
+		<!-- <CheckBoxPreference android:title="Media mounted"
+			android:defaultValue="true" android:summary="enable TTS on Media mounted"
+			android:dependency="cbxEnable" android:key="cbxEnableMediaMounted" /> -->
+		<CheckBoxPreference android:title="Media unmounted"
+			android:defaultValue="true" android:summary="enable TTS on Media unmounted"
+			android:dependency="cbxEnable" android:key="cbxEnableMediaUnMounted" />
 		<CheckBoxPreference android:title="Wifi discovered"
-			android:defaultValue="true" android:summary="enable TTS when wifi discovered"
+			android:defaultValue="true" android:summary="enable TTS when wifi discovered (note: network notification should be enabled)"
 			android:dependency="cbxEnable" android:key="cbxEnableWifiDiscovered" />
 		<CheckBoxPreference android:title="Wifi connect"
 			android:defaultValue="true" android:summary="enable TTS when wifi is connected"
@@ -103,21 +103,21 @@
 			android:defaultValue="Phone provider changed" android:dependency="cbxOptionsProviderChangedUserDefinedText"
 			android:title="Set speech text" android:key="txtOptionsProviderChangedText" />
 	</PreferenceCategory>
-	<PreferenceCategory android:title="Extra options for UMS connected">
+	<PreferenceCategory android:title="Extra options for Media mounted">
 		<CheckBoxPreference android:title="Use user-defined text"
 			android:defaultValue="false" android:summary="user-defined text will be used as the TTS"
-			android:key="cbxOptionsUMSConnectedUserDefinedText" />
-		<EditTextPreference android:summary="Set your own Usb Mass Storage connected text"
-			android:defaultValue="UMS connected" android:dependency="cbxOptionsUMSConnectedUserDefinedText"
-			android:title="Set speech text" android:key="txtOptionsUMSConnectedText" />
+			android:key="cbxOptionsMediaMountedUserDefinedText" />
+		<EditTextPreference android:summary="Set your own Usb Mass Storage (Media) mounted text"
+			android:defaultValue="Media mounted" android:dependency="cbxOptionsMediaMountedUserDefinedText"
+			android:title="Set speech text" android:key="txtOptionsMediaMountedText" />
 	</PreferenceCategory>
-	<PreferenceCategory android:title="Extra options for UMS disconnected">
+	<PreferenceCategory android:title="Extra options for Media unmounted">
 		<CheckBoxPreference android:title="Use user-defined text"
 			android:defaultValue="false" android:summary="user-defined text will be used as the TTS"
-			android:key="cbxOptionsUMSDisconnectedUserDefinedText" />
-		<EditTextPreference android:summary="Set your own UMS disconnected text"
-			android:defaultValue="UMS disconnected" android:dependency="cbxOptionsUMSDisconnectedUserDefinedText"
-			android:title="Set speech text" android:key="txtOptionsUMSDisconnectedText" />
+			android:key="cbxOptionsMediaUnMountedUserDefinedText" />
+		<EditTextPreference android:summary="Set your own Media unmounted text"
+			android:defaultValue="Media unmounted" android:dependency="cbxOptionsMediaUnMountedUserDefinedText"
+			android:title="Set speech text" android:key="txtOptionsMediaUnMountedText" />
 	</PreferenceCategory>
 	<PreferenceCategory android:title="Extra options for wifi discovered">
 		<CheckBoxPreference android:title="Use user-defined text"

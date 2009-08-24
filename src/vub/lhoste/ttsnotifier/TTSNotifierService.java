@@ -11,6 +11,7 @@ import android.content.pm.ResolveInfo;
 import android.database.Cursor;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
+import android.net.NetworkInfo;
 import android.net.Uri;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
@@ -37,10 +38,11 @@ public class TTSNotifierService extends Service {
 	private static final String ACTION_MEDIA_BAD_REMOVAL = "android.intent.action.ACTION_MEDIA_BAD_REMOVAL";
 	private static final String ACTION_BOOT_COMPLETED = "android.intent.action.ACTION_BOOT_COMPLETED";
 	private static final String ACTION_PROVIDER_CHANGED = "android.intent.action.ACTION_PROVIDER_CHANGED";
-	private static final String ACTION_UMS_CONNECTED = "android.intent.action.ACTION_UMS_CONNECTED";
-	private static final String ACTION_UMS_DISCONNECTED = "android.intent.action.ACTION_UMS_CONNECTED";
+	private static final String ACTION_MEDIA_MOUNTED = "android.intent.action.ACTION_MEDIA_MOUNTED";
+	private static final String ACTION_MEDIA_UNMOUNTED = "android.intent.action.ACTION_MEDIA_UNMOUNTED";
 	private static final String ACTION_PICK_WIFI_NETWORK = "android.net.wifi.PICK_WIFI_NETWORK";
-	private static final String ACTION_SUPPLICANT_CONNECTION_CHANGE_ACTION = "android.net.wifi.supplicant.CONNECTION_CHANGE";
+	private static final String ACTION_WIFI_STATE_CHANGE = "android.net.wifi.STATE_CHANGE";
+	private static final String ACTION_SUPPLICANT_CONNECTION_CHANGE_ACTION  = "android.net.wifi.supplicant.CONNECTION_CHANGE";
 
 	private static final int MEDIUM_THREADWAIT = 300;
 	private static final int FAST_THREADWAIT = 50;
@@ -139,12 +141,14 @@ public class TTSNotifierService extends Service {
 				handleACTION_BOOT_COMPLETED(intent);
 			} else if (ACTION_PROVIDER_CHANGED.equals(action)) {
 				handleACTION_PROVIDER_CHANGED(intent);
-			} else if (ACTION_UMS_CONNECTED.equals(action)) {
-				handleACTION_UMS_CONNECTED(intent);
-			} else if (ACTION_UMS_DISCONNECTED.equals(action)) {
-				handleACTION_UMS_DISCONNECTED(intent);
+			} else if (ACTION_MEDIA_MOUNTED.equals(action)) {
+				handleACTION_MEDIA_MOUNTED(intent);
+			} else if (ACTION_MEDIA_UNMOUNTED.equals(action)) {
+				handleACTION_MEDIA_UNMOUNTED(intent);
 			} else if (ACTION_PICK_WIFI_NETWORK.equals(action)) {
 				handleACTION_PICK_WIFI_NETWORK(intent);
+			} else if (ACTION_WIFI_STATE_CHANGE.equals(action)) {
+				handleACTION_WIFI_STATE_CHANGE(intent);
 			} else if (ACTION_SUPPLICANT_CONNECTION_CHANGE_ACTION.equals(action)) {
 				handleSUPPLICANT_CONNECTION_CHANGE_ACTION(intent);
 			}
@@ -352,24 +356,25 @@ public class TTSNotifierService extends Service {
 		speak(txtOptionsProviderChangedText, true);
 	}
 
-	public void handleACTION_UMS_CONNECTED(Intent intent) {
-		if (!mPrefs.getBoolean("cbxEnableUMSConnected", true)) return;
-		String txtOptionsMediaBadRemovalText;
-		if (mPrefs.getBoolean("cbxOptionsUMSConnectedUserDefinedText", true))
-			txtOptionsMediaBadRemovalText = mPrefs.getString("txtOptionsUMSConnectedText", "PC connected");
+	public void handleACTION_MEDIA_MOUNTED(Intent intent) {
+		if (!mPrefs.getBoolean("cbxEnableMediaMounted", true)) return;
+		if (true) return; // Disabled because TTS needs the SD card
+		String txtOptionsMediaMountedText;
+		if (mPrefs.getBoolean("cbxOptionsMediaMountedUserDefinedText", true))
+			txtOptionsMediaMountedText = mPrefs.getString("txtOptionsMediaMountedText", "Media mounted");
 		else
-			txtOptionsMediaBadRemovalText = "PC connected";
-		speak(txtOptionsMediaBadRemovalText, true);
+			txtOptionsMediaMountedText = "Media mounted";
+		speak(txtOptionsMediaMountedText, true);
 	}
 
-	public void handleACTION_UMS_DISCONNECTED(Intent intent) {
-		if (!mPrefs.getBoolean("cbxEnableUMSDisconnected", true)) return;
-		String txtOptionsUMSDisconnectedText;
-		if (mPrefs.getBoolean("cbxOptionsUMSDisconnectedUserDefinedText", true))
-			txtOptionsUMSDisconnectedText = mPrefs.getString("txtOptionsUMSDisconnectedText", "PC disconnected");
+	public void handleACTION_MEDIA_UNMOUNTED(Intent intent) {
+		if (!mPrefs.getBoolean("cbxEnableMediaUnMounted", true)) return;
+		String txtOptionsMediaUnMountedText;
+		if (mPrefs.getBoolean("cbxOptionsMediaUnMountedUserDefinedText", true))
+			txtOptionsMediaUnMountedText = mPrefs.getString("txtOptionsMediaUnMountedText", "Media unmounted");
 		else
-			txtOptionsUMSDisconnectedText = "PC disconnected";
-		speak(txtOptionsUMSDisconnectedText, true);
+			txtOptionsMediaUnMountedText = "Media unmounted";
+		speak(txtOptionsMediaUnMountedText, true);
 	}
 
 	public void handleACTION_PICK_WIFI_NETWORK(Intent intent) {
@@ -385,28 +390,31 @@ public class TTSNotifierService extends Service {
 		speak(txtOptionsWifiDiscovered, false);	
 	}
 
-	private void handleSUPPLICANT_CONNECTION_CHANGE_ACTION(Intent intent) {
+	private void handleACTION_WIFI_STATE_CHANGE(Intent intent) {
 		// Preferences
 		boolean cbxEnableWifiConnect = mPrefs.getBoolean("cbxEnableWifiConnect", true);
-		boolean cbxEnableWifiDisconnect = mPrefs.getBoolean("cbxEnableWifiDisconnect", true);
 		String txtOptionsWifiConnected;
 		if (mPrefs.getBoolean("cbxOptionsWifiConnectedUserDefinedText", false))
 			txtOptionsWifiConnected = mPrefs.getString("txtOptionsWifiConnected", "Wyfy connected");
 		else
 			txtOptionsWifiConnected = "Wyfy connected";
+		NetworkInfo ni = intent.getParcelableExtra(WifiManager.EXTRA_NETWORK_INFO);
+		if (ni == null) return;
+		if (cbxEnableWifiConnect && ni.getState() == NetworkInfo.State.CONNECTED)
+			speak(txtOptionsWifiConnected, false);
+	}
+
+	private void handleSUPPLICANT_CONNECTION_CHANGE_ACTION(Intent intent) {
+		// Preferences
+		boolean cbxEnableWifiDisconnect = mPrefs.getBoolean("cbxEnableWifiDisconnect", true);
 		String txtOptionsWifiDisconnected;
 		if (mPrefs.getBoolean("cbxOptionsWifiDisconnectedUserDefinedText", true))
 			txtOptionsWifiDisconnected = mPrefs.getString("txtOptionsWifiDisconnected", "Wyfy disconnected");
 		else
 			txtOptionsWifiDisconnected = "Wyfy disconnected";
 		// Logic
-		if (!cbxEnableWifiConnect && intent.getBooleanExtra(WifiManager.EXTRA_SUPPLICANT_CONNECTED, true)) return;
-		if (!cbxEnableWifiDisconnect && !intent.getBooleanExtra(WifiManager.EXTRA_SUPPLICANT_CONNECTED, true)) return;
-		if (intent.getBooleanExtra(WifiManager.EXTRA_SUPPLICANT_CONNECTED, true)) {
-			speak(txtOptionsWifiConnected, false);			
-		} else {
+		if (cbxEnableWifiDisconnect && !intent.getBooleanExtra(WifiManager.EXTRA_SUPPLICANT_CONNECTED, true))
 			speak(txtOptionsWifiDisconnected, false);
-		}
 	}
 
 	private TTS.InitListener ttsInitListener = new TTS.InitListener() {
