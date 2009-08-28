@@ -33,6 +33,8 @@ import com.google.tts.TTS;
 
 public class TTSNotifierService extends Service {
 
+	public volatile static TTSNotifierLanguage myLanguage = null;
+
 	private static final String ACTION_PHONE_STATE = "android.intent.action.PHONE_STATE";
 	private static final String ACTION_SMS_RECEIVED = "android.provider.Telephony.SMS_RECEIVED";
 	private static final String ACTION_BATTERY_LOW = "android.intent.action.ACTION_BATTERY_LOW";
@@ -45,15 +47,13 @@ public class TTSNotifierService extends Service {
 	private static final String ACTION_WIFI_STATE_CHANGE = "android.net.wifi.STATE_CHANGE";
 	private static final String ACTION_SUPPLICANT_CONNECTION_CHANGE_ACTION  = "android.net.wifi.supplicant.CONNECTION_CHANGE";
 
-	private static final int LONG_THREADWAIT = 1000;
 	private static final int MEDIUM_THREADWAIT = 300;
 	private static final int SHORT_THREADWAIT = 50;
 
 	private volatile static TTS myTts = null;
-	private volatile static boolean myTtsFirstTime = true;
+	private volatile static boolean ttsReady = false;
 	private volatile MediaPlayer myRingTonePlayer = null;
 	private volatile boolean stopRingtone = false;
-	private volatile boolean ttsReady = false;
 
 	private Context context;
 	private ServiceHandler mServiceHandler;
@@ -81,6 +81,7 @@ public class TTSNotifierService extends Service {
 		mAudioManager = (AudioManager)context.getSystemService(Context.AUDIO_SERVICE);
 		mTelephonyManager = (TelephonyManager)context.getSystemService(Context.TELEPHONY_SERVICE);
 		HandlerThread thread;
+		setLanguage(mPrefs.getBoolean("cbxChangeLanguage", false), mPrefs.getString("txtLanguage", "English"));
 		if (mPrefs.getBoolean("cbxRunWithHighPriority", false))
 			thread = new HandlerThread("HandleIntentTTSNotifier", Process.THREAD_PRIORITY_URGENT_AUDIO);
 		else
@@ -95,11 +96,13 @@ public class TTSNotifierService extends Service {
 		Log.v("TTSNotifierService", "onStart()");
 		if (myTts == null)
 			myTts = new TTS(context, ttsInitListener, true);
+		if (mPrefs.getBoolean("cbxChangeLanguage", false))
+			setLanguageTts(myLanguage.getTTSShortName());
 		Message msg = mServiceHandler.obtainMessage();
 		msg.arg1 = startId;
 		msg.obj = intent;
 		mServiceHandler.sendMessage(msg);
-	} 
+	}
 
 	@Override
 	public void onDestroy() {
@@ -108,7 +111,6 @@ public class TTSNotifierService extends Service {
 		if (myTts != null) 
 			myTts.shutdown();
 		myTts = null;
-		myTtsFirstTime = true;
 		if (myRingTonePlayer != null)
 			myRingTonePlayer.release();
 		myRingTonePlayer = null;
@@ -124,10 +126,10 @@ public class TTSNotifierService extends Service {
 		@Override
 		public void handleMessage(Message msg) {
 			Log.v("TTSNotifierService", "handleMessage()");
-			
+
 			Intent intent = (Intent) msg.obj;
 			String action = intent.getAction();
-			
+
 			readState();
 			storeAndUpdateVolume();
 
@@ -141,7 +143,7 @@ public class TTSNotifierService extends Service {
 			// When calling ignore other notifications
 			if (!ACTION_PHONE_STATE.equals(action) && (mTelephonyManager.getCallState() != TelephonyManager.CALL_STATE_IDLE))
 				return;
-			
+
 			Log.v("TTSNotifierService", "Action: " + action);
 
 			if (ACTION_PHONE_STATE.equals(action)) {
@@ -173,6 +175,45 @@ public class TTSNotifierService extends Service {
 		}
 	}
 
+	public static void setLanguage(boolean changeLanguage, String language) {
+		if (!changeLanguage)
+			language = java.util.Locale.getDefault().getLanguage();
+		if (language.equals("English")
+				|| language.equals("en_US")
+				|| language.equals("en_GB")
+				|| language.equals("en_CA")
+				|| language.equals("en_AU")
+				|| language.equals("en_NZ")
+				|| language.equals("en_SG") )
+			myLanguage = new TTSNotifierLanguageEN();
+		else if (language.equals("Nederlands")
+				|| language.equals("nl_NL")
+				|| language.equals("nl_BE"))
+			myLanguage = new TTSNotifierLanguageNL();
+		else if (language.equals("Français")
+				|| language.equals("fr_FR")
+				|| language.equals("fr_BE")
+				|| language.equals("fr_CA")
+				|| language.equals("fr_CH"))
+			myLanguage = new TTSNotifierLanguageFR();
+		else if (language.equals("Deutsch")
+				|| language.equals("de_DE")
+				|| language.equals("de_AT")
+				|| language.equals("de_CH")
+				|| language.equals("de_LI"))
+			myLanguage = new TTSNotifierLanguageDE();
+		else 
+			myLanguage = new TTSNotifierLanguageEN();
+		Log.v("LODE", myLanguage.getTTSShortName());
+		setLanguageTts(myLanguage.getTTSShortName());
+	} 
+
+	private static void setLanguageTts(String languageShortName) {
+		if (myTts != null) {
+			myTts.setLanguage(languageShortName);
+		}		
+	}
+
 	private void readState() {
 		if (mAudioManager != null)
 			silentMode = mAudioManager.getRingerMode() != AudioManager.RINGER_MODE_NORMAL;
@@ -181,17 +222,15 @@ public class TTSNotifierService extends Service {
 	private void storeAndUpdateVolume() {
 		if (mPrefs.getBoolean("cbxChangeVolume", false) && mAudioManager != null && mRingtoneThread == null) {
 			int intOptionsTTSVolume = Math.min(mAudioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC), Math.max(0, Integer.parseInt(mPrefs.getString("intOptionsTTSVolume", "14"))));
-			Log.v("LODE", "OLD VOL1: " + mAudioManager.getStreamVolume(AudioManager.STREAM_RING));
 			oldStreamMusicVolume = mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
 			oldStreamRingtoneVolume = mAudioManager.getStreamVolume(AudioManager.STREAM_RING);
-			Log.v("LODE", "OLD VOL2: " + oldStreamRingtoneVolume);
 			while (mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC) < intOptionsTTSVolume)
 				mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, 0);
 			while (mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC) > intOptionsTTSVolume)
 				mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, 0);
 		}
 	}
-	
+
 	private void restoreVolume() {
 		if (mPrefs.getBoolean("cbxChangeVolume", false) && mAudioManager != null) {
 			Log.v("LODE", "OLD VOL: " + oldStreamRingtoneVolume);
@@ -204,7 +243,7 @@ public class TTSNotifierService extends Service {
 		}
 	}
 
-	private void waitForSpeechInitialised() {
+	public static void waitForSpeechInitialised() {
 		while (!ttsReady) {
 			try {
 				Thread.sleep(MEDIUM_THREADWAIT);
@@ -214,24 +253,13 @@ public class TTSNotifierService extends Service {
 		}
 	}
 
-	private void waitForSpeechFinished() {
-		if (myTtsFirstTime) {
-			try {
-				Thread.sleep(LONG_THREADWAIT);
-			} catch (InterruptedException e) { }
-		}
+	private static void waitForSpeechFinished() {
 		try {
 			Thread.sleep(MEDIUM_THREADWAIT);
 		} catch (InterruptedException e) { }
 		while (myTts.isSpeaking()) {
 			try {
 				Thread.sleep(MEDIUM_THREADWAIT);
-			} catch (InterruptedException e) { }
-		}
-		if (myTtsFirstTime) {
-			myTtsFirstTime = false;
-			try {
-				Thread.sleep(LONG_THREADWAIT);
 			} catch (InterruptedException e) { }
 		}
 		try {
@@ -266,8 +294,8 @@ public class TTSNotifierService extends Service {
 		if (waitForFinish)
 			waitForRingTonePlayed();
 	}
-	
-	private void speak(String str, boolean waitForFinish) {
+
+	public static void speak(String str, boolean waitForFinish) {
 		Log.v("TTSNotifierService", "speak():" + myTts);
 		if (myTts == null) return;
 		waitForSpeechInitialised();
@@ -281,9 +309,9 @@ public class TTSNotifierService extends Service {
 		final String txtOptionsIncomingCall;
 		// Preferences
 		if (mPrefs.getBoolean("cbxOptionsIncomingCallUserDefinedText", false))
-			txtOptionsIncomingCall = mPrefs.getString("txtOptionsIncomingCall", "Phone call from %s");
+			txtOptionsIncomingCall = mPrefs.getString("txtOptionsIncomingCall", myLanguage.getTxtOptionsIncomingCall());
 		else
-			txtOptionsIncomingCall = "Phone call from %s";
+			txtOptionsIncomingCall = myLanguage.getTxtOptionsIncomingCall();
 		final boolean cbxOptionsIncomingCallUseTTSRingtone = mPrefs.getBoolean("cbxOptionsIncomingCallUseTTSRingtone", false);
 		final String txtOptionsIncomingCallRingtone = mPrefs.getString("txtOptionsIncomingCallRingtone", Settings.System.DEFAULT_RINGTONE_URI.toString());
 		final int intOptionsIncomingCallMinimalRingCountBeforeTTS = Integer.parseInt(mPrefs.getString("intOptionsIncomingCallMinimalRingCountBeforeTTS", "2"));
@@ -387,11 +415,11 @@ public class TTSNotifierService extends Service {
 		String txtOptionsIncomingSMS;
 		// Preferences
 		if (mPrefs.getBoolean("cbxOptionsIncomingSMSOnlyAnnouncePerson", true))
-			txtOptionsIncomingSMS = "New text message from %s";
+			txtOptionsIncomingSMS = myLanguage.getTxtOptionsIncomingSMS();
 		else if (mPrefs.getBoolean("cbxOptionsIncomingSMSUserDefinedText", true))
-			txtOptionsIncomingSMS = mPrefs.getString("txtOptionsIncomingSMS", "New text message from %s about %s");
+			txtOptionsIncomingSMS = mPrefs.getString("txtOptionsIncomingSMS", myLanguage.getTxtOptionsIncomingSMSBody());
 		else
-			txtOptionsIncomingSMS = "New text message from %s about %s";
+			txtOptionsIncomingSMS = myLanguage.getTxtOptionsIncomingSMSBody();
 		// Logic
 		SmsMessage[] messages = getMessagesFromIntent(intent);
 		if (messages == null) return;
@@ -417,9 +445,9 @@ public class TTSNotifierService extends Service {
 		String txtOptionsBatteryLowWarningText;
 		// Preferences
 		if (mPrefs.getBoolean("cbxOptionsBatteryLowWarningUserDefinedText", true))
-			txtOptionsBatteryLowWarningText = mPrefs.getString("txtOptionsBatteryLowWarningText", "Your battery is low");
+			txtOptionsBatteryLowWarningText = mPrefs.getString("txtOptionsBatteryLowWarningText", myLanguage.getTxtOptionsBatteryLowWarningText());
 		else
-			txtOptionsBatteryLowWarningText = "Your battery is low";
+			txtOptionsBatteryLowWarningText = myLanguage.getTxtOptionsBatteryLowWarningText();
 		speak(txtOptionsBatteryLowWarningText, true);
 	}
 
@@ -427,9 +455,9 @@ public class TTSNotifierService extends Service {
 		if (!mPrefs.getBoolean("cbxEnableBadMediaRemoval", true)) return;
 		String txtOptionsMediaBadRemovalText;
 		if (mPrefs.getBoolean("cbxOptionsMediaBadRemovalUserDefinedText", true))
-			txtOptionsMediaBadRemovalText = mPrefs.getString("txtOptionsMediaBadRemovalText", "Media removed before it was unmounted");
+			txtOptionsMediaBadRemovalText = mPrefs.getString("txtOptionsMediaBadRemovalText", myLanguage.getTxtOptionsMediaBadRemovalText());
 		else
-			txtOptionsMediaBadRemovalText = "Media removed before it was unmounted";
+			txtOptionsMediaBadRemovalText = myLanguage.getTxtOptionsMediaBadRemovalText();
 		speak(txtOptionsMediaBadRemovalText, true);
 	}
 
@@ -439,9 +467,9 @@ public class TTSNotifierService extends Service {
 		if (!mPrefs.getBoolean("cbxEnableProviderChanged", true)) return;
 		String txtOptionsProviderChangedText;
 		if (mPrefs.getBoolean("cbxOptionsProviderChangedUserDefinedText", true))
-			txtOptionsProviderChangedText = mPrefs.getString("txtOptionsProviderChangedText", "Phone provider changed");
+			txtOptionsProviderChangedText = mPrefs.getString("txtOptionsProviderChangedText", myLanguage.getTxtOptionsProviderChangedText());
 		else
-			txtOptionsProviderChangedText = "Phone provider changed";
+			txtOptionsProviderChangedText = myLanguage.getTxtOptionsProviderChangedText();
 		speak(txtOptionsProviderChangedText, true);
 	}
 
@@ -450,9 +478,9 @@ public class TTSNotifierService extends Service {
 		if (true) return; // Disabled because TTS needs the SD card
 		String txtOptionsMediaMountedText;
 		if (mPrefs.getBoolean("cbxOptionsMediaMountedUserDefinedText", true))
-			txtOptionsMediaMountedText = mPrefs.getString("txtOptionsMediaMountedText", "Media mounted");
+			txtOptionsMediaMountedText = mPrefs.getString("txtOptionsMediaMountedText", myLanguage.getTxtOptionsMediaMountedText());
 		else
-			txtOptionsMediaMountedText = "Media mounted";
+			txtOptionsMediaMountedText = myLanguage.getTxtOptionsMediaMountedText();
 		speak(txtOptionsMediaMountedText, true);
 	}
 
@@ -460,9 +488,9 @@ public class TTSNotifierService extends Service {
 		if (!mPrefs.getBoolean("cbxEnableMediaUnMounted", true)) return;
 		String txtOptionsMediaUnMountedText;
 		if (mPrefs.getBoolean("cbxOptionsMediaUnMountedUserDefinedText", true))
-			txtOptionsMediaUnMountedText = mPrefs.getString("txtOptionsMediaUnMountedText", "Media unmounted");
+			txtOptionsMediaUnMountedText = mPrefs.getString("txtOptionsMediaUnMountedText", myLanguage.getTxtOptionsMediaUnMountedText());
 		else
-			txtOptionsMediaUnMountedText = "Media unmounted";
+			txtOptionsMediaUnMountedText = myLanguage.getTxtOptionsMediaUnMountedText();
 		speak(txtOptionsMediaUnMountedText, true);
 	}
 
@@ -471,9 +499,9 @@ public class TTSNotifierService extends Service {
 		boolean cbxEnableWifiDiscovered = mPrefs.getBoolean("cbxEnableWifiDiscovered", true);
 		String txtOptionsWifiDiscovered;
 		if (mPrefs.getBoolean("cbxOptionsWifiDiscoveredUserDefinedText", false))
-			txtOptionsWifiDiscovered = mPrefs.getString("txtOptionsWifiDiscovered", "Wyfy Signal in Range");
+			txtOptionsWifiDiscovered = mPrefs.getString("txtOptionsWifiDiscovered", myLanguage.getTxtOptionsWifiDiscovered());
 		else
-			txtOptionsWifiDiscovered = "Wyfy Signal in Range";
+			txtOptionsWifiDiscovered = myLanguage.getTxtOptionsWifiDiscovered();
 		// Logic
 		if (!cbxEnableWifiDiscovered) return;
 		speak(txtOptionsWifiDiscovered, true);	
@@ -484,9 +512,9 @@ public class TTSNotifierService extends Service {
 		boolean cbxEnableWifiConnect = mPrefs.getBoolean("cbxEnableWifiConnect", true);
 		String txtOptionsWifiConnected;
 		if (mPrefs.getBoolean("cbxOptionsWifiConnectedUserDefinedText", false))
-			txtOptionsWifiConnected = mPrefs.getString("txtOptionsWifiConnected", "Wyfy connected");
+			txtOptionsWifiConnected = mPrefs.getString("txtOptionsWifiConnected", myLanguage.getTxtOptionsWifiConnected());
 		else
-			txtOptionsWifiConnected = "Wyfy connected";
+			txtOptionsWifiConnected = myLanguage.getTxtOptionsWifiConnected();
 		NetworkInfo ni = intent.getParcelableExtra(WifiManager.EXTRA_NETWORK_INFO);
 		if (ni == null) return;
 		if (cbxEnableWifiConnect && ni.getState() == NetworkInfo.State.CONNECTED)
@@ -498,9 +526,9 @@ public class TTSNotifierService extends Service {
 		boolean cbxEnableWifiDisconnect = mPrefs.getBoolean("cbxEnableWifiDisconnect", true);
 		String txtOptionsWifiDisconnected;
 		if (mPrefs.getBoolean("cbxOptionsWifiDisconnectedUserDefinedText", true))
-			txtOptionsWifiDisconnected = mPrefs.getString("txtOptionsWifiDisconnected", "Wyfy disconnected");
+			txtOptionsWifiDisconnected = mPrefs.getString("txtOptionsWifiDisconnected", myLanguage.getTxtOptionsWifiDisconnected());
 		else
-			txtOptionsWifiDisconnected = "Wyfy disconnected";
+			txtOptionsWifiDisconnected = myLanguage.getTxtOptionsWifiDisconnected();
 		// Logic
 		if (cbxEnableWifiDisconnect && !intent.getBooleanExtra(WifiManager.EXTRA_SUPPLICANT_CONNECTED, true))
 			speak(txtOptionsWifiDisconnected, true);
@@ -510,6 +538,8 @@ public class TTSNotifierService extends Service {
 		@Override
 		public void onInit(int version) {
 			Log.v("TTSNotifierService", "TTS INIT DONE");
+			setLanguageTts(myLanguage.getTTSShortName());
+			myTts.speak("", 0, null);
 			ttsReady = true;
 		}
 	};
@@ -538,7 +568,7 @@ public class TTSNotifierService extends Service {
 					.getColumnIndex(Contacts.Phones.DISPLAY_NAME));
 			return name;
 		}
-		return "Unknown";
+		return myLanguage.getTxtUnknown();
 	}
 
 	private SmsMessage[] getMessagesFromIntent(Intent intent)

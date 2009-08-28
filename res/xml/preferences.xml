@@ -2,7 +2,7 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
 	<PreferenceCategory android:title="Enable / Disable">
 		<CheckBoxPreference android:title="Enable TTSNotifications"
-			android:defaultValue="false" android:summary="enable TTS notifications"
+			android:defaultValue="true" android:summary="enable TTS notifications"
 			android:key="cbxEnable" />
 		<CheckBoxPreference android:title="Incoming call"
 			android:defaultValue="true" android:summary="enable TTS on incoming call"
@@ -40,6 +40,16 @@
 			android:dependency="cbxEnable" android:key="cbxEnableWifiDisconnect" />
 	</PreferenceCategory>
 	<PreferenceCategory android:title="Extra options">
+		<Preference android:title="Test TTS"
+			android:summary="Test the text-to-speech for your language"
+			android:key="btnTestTTS" />
+		<CheckBoxPreference android:title="Change TTS language"
+			android:defaultValue="true" android:summary="change the TTS language"
+			android:key="cbxChangeLanguage" />
+		<ListPreference android:title="Set TTS language"
+			android:summary="set the language" android:defaultValue="English"
+			android:key="txtLanguage" android:entries="@array/languages"
+			android:entryValues="@array/languages" android:dependency="cbxChangeLanguage" />
 		<CheckBoxPreference android:title="Change volume"
 			android:defaultValue="true" android:summary="change the volume when TTS speaks"
 			android:key="cbxChangeVolume" />
@@ -50,7 +60,7 @@
 			android:defaultValue="true" android:summary="do not use TTS when phone is in silent mode"
 			android:key="cbxObeySilentMode" />
 		<CheckBoxPreference android:title="Run with high priority"
-			android:defaultValue="true"
+			android:defaultValue="false"
 			android:summary="(only needed when using the 'Special TTS Ringtone mode'). Restart App!"
 			android:key="cbxRunWithHighPriority" />
 	</PreferenceCategory>
@@ -62,8 +72,7 @@
 			android:defaultValue="Incoming call from %s" android:dependency="cbxOptionsIncomingCallUserDefinedText"
 			android:title="Set speech text" android:key="txtOptionsIncomingCall" />
 		<CheckBoxPreference android:title="Use special TTS Ringtone"
-			android:defaultValue="false"
-			android:summary="[Ring]*n, TTS, Repeat - Note: set the ringtone volume to zero"
+			android:defaultValue="false" android:summary="[Ring] n times, [speech], Repeat"
 			android:key="cbxOptionsIncomingCallUseTTSRingtone" />
 		<RingtonePreference android:title="TTS Ringtone"
 			android:summary="Select a ringtone" android:key="txtOptionsIncomingCallRingtone"
