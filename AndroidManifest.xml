@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
 	android:versionCode="1" package="vub.lhoste.ttsnotifier"
-	android:versionName="1.5">
+	android:versionName="1.6">
 	<application android:label="@string/app_name" android:icon="@drawable/icon">
 		<service android:name=".TTSNotifierService" />
 		<activity android:name=".TTSNotifierPreferences"
@@ -17,7 +17,7 @@
 				<action android:name="android.provider.Telephony.SMS_RECEIVED" />
 				<action android:name="android.intent.action.ACTION_BATTERY_LOW" />
 				<action android:name="android.intent.action.ACTION_MEDIA_BAD_REMOVAL" />
-				<action android:name="android.intent.action.ACTION_BOOT_COMPLETED" />
+				<!-- <action android:name="android.intent.action.ACTION_BOOT_COMPLETED" />  -->
 				<action android:name="android.intent.action.ACTION_PROVIDER_CHANGED" />
 				<action android:name="android.intent.action.ACTION_MEDIA_MOUNTED" />
 				<action android:name="android.intent.action.ACTION_MEDIA_UNMOUNTED" />
