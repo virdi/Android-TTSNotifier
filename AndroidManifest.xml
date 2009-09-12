@@ -17,13 +17,13 @@
 				<action android:name="android.provider.Telephony.SMS_RECEIVED" />
 				<action android:name="android.intent.action.ACTION_BATTERY_LOW" />
 				<action android:name="android.intent.action.ACTION_MEDIA_BAD_REMOVAL" />
-				<!-- <action android:name="android.intent.action.ACTION_BOOT_COMPLETED" />  -->
 				<action android:name="android.intent.action.ACTION_PROVIDER_CHANGED" />
 				<action android:name="android.intent.action.ACTION_MEDIA_MOUNTED" />
 				<action android:name="android.intent.action.ACTION_MEDIA_UNMOUNTED" />
 				<action android:name="android.net.wifi.PICK_WIFI_NETWORK" />
 				<action android:name="android.net.wifi.STATE_CHANGE" />
 				<action android:name="android.net.wifi.supplicant.CONNECTION_CHANGE" />
+				<!-- <action android:name="android.intent.action.ACTION_BOOT_COMPLETED" />  -->
 			</intent-filter>
 		</receiver>
 	</application>
@@ -32,5 +32,5 @@
 	<uses-permission android:name="android.permission.RECEIVE_SMS"></uses-permission>
 	<uses-permission android:name="android.permission.READ_CONTACTS"></uses-permission>
 	<uses-permission android:name="android.permission.BATTERY_STATS"></uses-permission>
-	<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"></uses-permission>
+	<!-- <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"></uses-permission>  -->
 </manifest>

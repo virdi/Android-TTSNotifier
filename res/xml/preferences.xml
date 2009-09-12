@@ -77,7 +77,7 @@
 		<RingtonePreference android:title="TTS Ringtone"
 			android:summary="Select a ringtone" android:key="txtOptionsIncomingCallRingtone"
 			android:dependency="cbxOptionsIncomingCallUseTTSRingtone" />
-		<EditTextPreference android:title="Set minimal ringtone count before TTS"
+		<EditTextPreference android:title="Nr of rings before TTS"
 			android:summary="minimal number of rings before TTS starts"
 			android:defaultValue="2"
 			android:key="intOptionsIncomingCallMinimalRingCountBeforeTTS"
@@ -86,11 +86,11 @@
 			android:summary="number of rings after TTS announcement"
 			android:defaultValue="2" android:key="intOptionsIncomingCallRingCountAfterTTS"
 			android:dependency="cbxOptionsIncomingCallUseTTSRingtone" />
-		<EditTextPreference android:title="Set number of TTS announcements"
+		<EditTextPreference android:title="Nr of TTS announcements"
 			android:summary="set number of times the TTS will be invoked"
 			android:defaultValue="2" android:key="intOptionsIncomingCallTTSRepeats"
 			android:dependency="cbxOptionsIncomingCallUseTTSRingtone" />
-		<EditTextPreference android:title="Set number of milliseconds between ringtone"
+		<EditTextPreference android:title="Milliseconds between rings"
 			android:summary="number of milliseconds between ringtone"
 			android:defaultValue="2" android:key="intOptionsIncomingCallDelayBetweenRingtones"
 			android:dependency="cbxOptionsIncomingCallUseTTSRingtone" />

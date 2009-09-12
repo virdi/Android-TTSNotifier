@@ -94,8 +94,11 @@ public class TTSNotifierService extends Service {
 	@Override
 	public void onStart(Intent intent, int startId) {
 		Log.v("TTSNotifierService", "onStart()");
-		if (myTts == null)
-			myTts = new TTS(context, ttsInitListener, true);
+		if (myTts == null) {
+			try {
+				myTts = new TTS(context, ttsInitListener, true);
+			} catch (java.lang.ExceptionInInitializerError e) { e.printStackTrace(); }
+		}
 		if (mPrefs.getBoolean("cbxChangeLanguage", false))
 			setLanguageTts(myLanguage.getTTSShortName());
 		Message msg = mServiceHandler.obtainMessage();
@@ -169,7 +172,7 @@ public class TTSNotifierService extends Service {
 			} else if (ACTION_SUPPLICANT_CONNECTION_CHANGE_ACTION.equals(action)) {
 				handleSUPPLICANT_CONNECTION_CHANGE_ACTION(intent);
 			}
-			// ACTION_PHONE_STATE is different because we are using a thread there
+			// ACTION_PHONE_STATE is different because we are using a thread in it
 			if (!ACTION_PHONE_STATE.equals(action))
 				restoreVolume();
 		}
@@ -204,7 +207,6 @@ public class TTSNotifierService extends Service {
 			myLanguage = new TTSNotifierLanguageDE();
 		else 
 			myLanguage = new TTSNotifierLanguageEN();
-		Log.v("LODE", myLanguage.getTTSShortName());
 		setLanguageTts(myLanguage.getTTSShortName());
 	} 
 
@@ -218,7 +220,7 @@ public class TTSNotifierService extends Service {
 		if (mAudioManager != null)
 			silentMode = mAudioManager.getRingerMode() != AudioManager.RINGER_MODE_NORMAL;
 	}
-	
+
 	private void storeAndUpdateVolume() {
 		if (mPrefs.getBoolean("cbxChangeVolume", false) && mAudioManager != null && mRingtoneThread == null) {
 			int intOptionsTTSVolume = Math.min(mAudioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC), Math.max(0, Integer.parseInt(mPrefs.getString("intOptionsTTSVolume", "14"))));
@@ -233,7 +235,6 @@ public class TTSNotifierService extends Service {
 
 	private void restoreVolume() {
 		if (mPrefs.getBoolean("cbxChangeVolume", false) && mAudioManager != null) {
-			Log.v("LODE", "OLD VOL: " + oldStreamRingtoneVolume);
 			while (mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC) > oldStreamMusicVolume)
 				mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, 0);
 			while (mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC) < oldStreamMusicVolume)
