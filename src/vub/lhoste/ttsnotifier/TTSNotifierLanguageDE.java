@@ -1,10 +1,12 @@
 package vub.lhoste.ttsnotifier;
 
+import java.util.Locale;
+
 public class TTSNotifierLanguageDE extends TTSNotifierLanguage {
 
 	@Override
-	public String getTTSShortName() {
-		return "de";
+	public Locale getLocale() {
+		return Locale.GERMAN;
 	}
 
 	@Override

@@ -1,12 +1,14 @@
 package vub.lhoste.ttsnotifier;
 
+import java.util.Locale;
+
 public class TTSNotifierLanguageFR extends TTSNotifierLanguage {
 
 	// Don't mind the spelling, it's hard to let the TTS speak french >.>
 	
 	@Override
-	public String getTTSShortName() {
-		return "fr";
+	public Locale getLocale() {
+		return Locale.FRENCH;
 	}
 
 	@Override
@@ -41,7 +43,7 @@ public class TTSNotifierLanguageFR extends TTSNotifierLanguage {
 
 	@Override
 	public String getTxtOptionsMediaBadRemovalText() {
-		return "Media enlever avant detreder connecter";
+		return "Media enlever avant deconnecter";
 	}
 
 	@Override

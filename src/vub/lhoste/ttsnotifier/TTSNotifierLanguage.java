@@ -1,7 +1,9 @@
 package vub.lhoste.ttsnotifier;
 
+import java.util.Locale;
+
 public abstract class TTSNotifierLanguage {
-	abstract public String getTTSShortName();
+	abstract public Locale getLocale();
 	abstract public String getTxtTest();
 	abstract public String getTxtUnknown();
 	abstract public String getTxtOptionsIncomingCall();

@@ -1,6 +1,7 @@
 package vub.lhoste.ttsnotifier;
 
 import java.io.IOException;
+import java.util.Locale;
 
 import android.app.Service;
 import android.content.Context;
@@ -29,7 +30,7 @@ import android.telephony.gsm.SmsMessage;
 import android.util.Log;
 import android.widget.Toast;
 
-import com.google.tts.TTS;
+import android.speech.tts.TextToSpeech;
 
 public class TTSNotifierService extends Service {
 
@@ -50,7 +51,7 @@ public class TTSNotifierService extends Service {
 	private static final int MEDIUM_THREADWAIT = 300;
 	private static final int SHORT_THREADWAIT = 50;
 
-	private volatile static TTS myTts = null;
+	private volatile static TextToSpeech myTts = null;
 	private volatile static boolean ttsReady = false;
 	private volatile MediaPlayer myRingTonePlayer = null;
 	private volatile boolean stopRingtone = false;
@@ -96,11 +97,11 @@ public class TTSNotifierService extends Service {
 		Log.v("TTSNotifierService", "onStart()");
 		if (myTts == null) {
 			try {
-				myTts = new TTS(context, ttsInitListener, true);
+				myTts = new TextToSpeech(context, ttsInitListener);
 			} catch (java.lang.ExceptionInInitializerError e) { e.printStackTrace(); }
 		}
 		if (mPrefs.getBoolean("cbxChangeLanguage", false))
-			setLanguageTts(myLanguage.getTTSShortName());
+			setLanguageTts(myLanguage.getLocale());
 		Message msg = mServiceHandler.obtainMessage();
 		msg.arg1 = startId;
 		msg.obj = intent;
@@ -207,10 +208,10 @@ public class TTSNotifierService extends Service {
 			myLanguage = new TTSNotifierLanguageDE();
 		else 
 			myLanguage = new TTSNotifierLanguageEN();
-		setLanguageTts(myLanguage.getTTSShortName());
+		setLanguageTts(myLanguage.getLocale());
 	} 
 
-	private static void setLanguageTts(String languageShortName) {
+	private static void setLanguageTts(Locale languageShortName) {
 		if (myTts != null) {
 			myTts.setLanguage(languageShortName);
 		}		
@@ -535,11 +536,11 @@ public class TTSNotifierService extends Service {
 			speak(txtOptionsWifiDisconnected, true);
 	}
 
-	private TTS.InitListener ttsInitListener = new TTS.InitListener() {
+	private TextToSpeech.OnInitListener ttsInitListener = new TextToSpeech.OnInitListener() {
 		@Override
 		public void onInit(int version) {
 			Log.v("TTSNotifierService", "TTS INIT DONE");
-			setLanguageTts(myLanguage.getTTSShortName());
+			setLanguageTts(myLanguage.getLocale());
 			myTts.speak("", 0, null);
 			ttsReady = true;
 		}
